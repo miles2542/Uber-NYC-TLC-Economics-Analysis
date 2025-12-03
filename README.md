@@ -34,7 +34,7 @@ We filtered specifically for **Uber** (`hvfhs_license_num == 'HV0003'`) to ensur
 ### **2. Ingestion Strategy**
 Downloading 80 files of monthly high-density Parquet files requires a robust automated script, not manual clicks on website.
 
-*   **Script:** `download_TLC_data.py` *(#STUB - link to github file to be added here)*
+*   **Script:** `scripts/download_TLC_data.py`
 *   **Method:** Iterative HTTP requests to the CloudFront repository.
 *   **Reliability:** Implemented exponential backoff (retries with increasing delays) to handle server timeouts and connection resets.
 *   **Storage:** Data is saved raw to `HVFHV subsets 2019-2025/`, preserving the original monthly partitioning (which will take 33GB for 80 months).
