@@ -1,0 +1,172 @@
+<section id="acquisition" class="mb-24 scroll-mt-32">
+    <h2 class="text-3xl font-bold mb-8 flex items-center gap-3">
+        <span class="text-uber-green">1.</span> Data Acquisition & Raw State
+    </h2>
+    <div class="prose prose-lg dark:prose-invert max-w-none">
+        <h3 class="text-2xl font-semibold mb-4">1. Source Selection</h3>
+        <p class="mb-6">
+            The NYC TLC publishes trip records for multiple sectors. We selected the <strong>High-Volume
+                For-Hire Vehicle (HVFHV)</strong> dataset because it contains data for app-based ride-hailing,
+            i.e. Uber, which is taking more market share over time.
+        </p>
+        <ul class="list-disc pl-6 space-y-2 mb-8 text-uber-gray600 dark:text-uber-gray500">
+            <li><strong>Yellow/Green Taxis:</strong> Still of decent volume, but declining market share, and
+                more limited range.</li>
+            <li><strong>Standard FHV (Livery/Black Car):</strong> Much less volume, no big name, not as
+                interesting.</li>
+            <li><strong>HVFHV (Uber/Lyft):</strong> The dominant market force with detailed per-trip economics.
+            </li>
+        </ul>
+
+        <div
+            class="bg-uber-gray100 dark:bg-uber-darkcard p-6 rounded-lg border-l-4 border-uber-black dark:border-uber-white mb-8">
+            <h4 class="font-bold mb-2">Why Uber Only?</h4>
+            <p class="text-sm mb-4">We filtered specifically for <strong>Uber</strong>
+                (<code>hvfhs_license_num == 'HV0003'</code>) to ensure consistency.
+            </p>
+            <ul class="list-disc pl-6 space-y-2 text-sm text-uber-gray600 dark:text-uber-gray500">
+                <li><strong>Uber:</strong> Dominant market share (~70-75%).</li>
+                <li><strong>Lyft/Via/Juno:</strong> Excluded to remove platform-specific confounding variables (e.g.,
+                    different incentive structures), and these platforms have much smaller market shares, or not in
+                    service anymore. Analyzing cross-platform dynamics is another aspect reserved for future work.</li>
+            </ul>
+            <p class="text-sm mt-4">This filtering reduced the total rows <strong>from 1.416 billion to 1.023
+                    billion</strong>, without any other filtering.</p>
+        </div>
+
+        <h3 class="text-2xl font-semibold mb-4">2. Ingestion Strategy</h3>
+        <p class="mb-4">Downloading 80 files of monthly high-density Parquet files requires a robust automated script,
+            not manual clicks on website.</p>
+        <ul class="list-disc pl-6 space-y-2 mb-8 text-uber-gray600 dark:text-uber-gray500">
+            <li><strong>Script:</strong> <code>download_TLC_data.py</code></li>
+            <li><strong>Method:</strong> Iterative HTTP requests to the CloudFront repository.</li>
+            <li><strong>Reliability:</strong> Implemented exponential backoff (retries with increasing delays) to handle
+                server timeouts and connection resets.</li>
+            <li><strong>Storage:</strong> Data is saved raw to <code>HVFHV subsets 2019-2025/</code>, preserving the
+                original monthly partitioning (which will take 33GB for 80 months).</li>
+        </ul>
+
+        <h3 class="text-2xl font-semibold mb-4">3. Raw Data Dictionary (Pre-Processing)</h3>
+        <p class="mb-4 text-sm"><em>Total Features: 24 (from 2025 onwards, it's 25). This dictionary is taken almost
+                directly from TLC site.</em></p>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead
+                    class="bg-uber-gray100 dark:bg-uber-darkcard text-uber-gray600 dark:text-uber-gray500 uppercase tracking-wider">
+                    <tr>
+                        <th class="p-4 rounded-tl-lg">Feature Name</th>
+                        <th class="p-4">Description</th>
+                        <th class="p-4 rounded-tr-lg">Note</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-uber-gray300 dark:divide-uber-darkborder">
+                    <tr>
+                        <td class="p-4 font-mono text-uber-green">hvfhs_license_num</td>
+                        <td class="p-4">The license number of the platform (e.g., HV0003 for Uber).</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Used for filtering.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-mono text-uber-green">pickup_datetime</td>
+                        <td class="p-4">The date and time the trip started.</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500"></td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-mono text-uber-green">dropoff_datetime</td>
+                        <td class="p-4">The date and time the trip ended.</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500"></td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-mono text-uber-green">PULocationID</td>
+                        <td class="p-4">TLC Taxi Zone ID where the trip began.</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Mapped to Shapefiles.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-mono text-uber-green">DOLocationID</td>
+                        <td class="p-4">TLC Taxi Zone ID where the trip ended.</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Mapped to Shapefiles.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-mono text-uber-green">trip_miles</td>
+                        <td class="p-4">Total distance driven in miles.</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Often noisy/GPS drift.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-mono text-uber-green">trip_time</td>
+                        <td class="p-4">Total duration in seconds.</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Frequently inconsistent with
+                            timestamps.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-mono text-uber-green">base_passenger_fare</td>
+                        <td class="p-4">Fare before taxes, tolls, and tips.</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">The core revenue metric.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-mono text-uber-green">driver_pay</td>
+                        <td class="p-4">Net earnings paid to the driver.</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Critical for economic analysis.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-mono text-uber-green">tips</td>
+                        <td class="p-4">Voluntary gratuity.</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500"></td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-mono text-uber-green">tolls</td>
+                        <td class="p-4">Bridge and tunnel fees.</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500"></td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-mono text-uber-green">congestion_surcharge</td>
+                        <td class="p-4">Fee for trips starting/ending in Manhattan (< 96th St).</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500"></td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-mono text-uber-green">airport_fee</td>
+                        <td class="p-4">Fee for pickup/dropoff at JFK/LGA/EWR.</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500"></td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-mono text-uber-green">shared_match_flag</td>
+                        <td class="p-4">Did the passenger share the ride? (Y/N).</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Indicates pooling.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-mono text-uber-green">wav_match_flag</td>
+                        <td class="p-4">Was the vehicle Wheelchair Accessible? (Y/N).</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Accessibility metric.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-mono text-uber-green">cbd_congestion_fee</td>
+                        <td class="p-4"><strong>New (2025):</strong> Congestion Relief Zone fee.</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Added Jan 2025.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3 class="text-2xl font-semibold mb-4 mt-12">4. External Data Enrichments</h3>
+        <p class="mb-4">To contextualize the raw trips, we integrated three external datasets:</p>
+        <ul class="list-disc pl-6 space-y-2 mb-8 text-uber-gray600 dark:text-uber-gray500">
+            <li><strong>Spatial:</strong> <code>taxi_zones.shp</code> (Shapefile).
+                <ul class="list-circle pl-6 mt-2">
+                    <li><em>Usage:</em> Converted Polygon zones into <strong>Centroids (Lat/Lon)</strong> to calculate
+                        straight-line distances and bearing.</li>
+                </ul>
+            </li>
+            <li><strong>Meteorological:</strong> Visual Crossing Weather API.
+                <ul class="list-circle pl-6 mt-2">
+                    <li><em>Usage:</em> Fetched <strong>Hourly Weather</strong> (Temp, Precip, Snow, Wind) for New York
+                        City (2019–2025) to correlate demand with weather events.</li>
+                </ul>
+            </li>
+            <li><strong>Lookup Tables:</strong> <code>taxi_zone_lookup.csv</code>.
+                <ul class="list-circle pl-6 mt-2">
+                    <li><em>Usage:</em> Mapped ID numbers to Boroughs (e.g., <code>132</code> → <code>Queens</code>) and
+                        Neighborhood names.</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+</section>

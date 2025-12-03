@@ -1,0 +1,60 @@
+<section id="legal" class="mb-24 scroll-mt-32">
+    <h2 class="text-3xl font-bold mb-8 flex items-center gap-3">
+        <span class="text-uber-green">7.</span> Legal & Constraints
+    </h2>
+    <div class="prose prose-lg dark:prose-invert max-w-none">
+
+        <h3 class="text-2xl font-semibold mb-4">Known Limitations</h3>
+        <ul class="list-disc pl-6 space-y-3 mb-8 text-uber-gray600 dark:text-uber-gray500">
+            <li>
+                <strong>Driver Anonymity:</strong> The dataset does not contain unique Driver IDs or Vehicle IDs. We
+                cannot track individual driver shifts, fatigue, or long-term earnings. All analysis is trip-based, not
+                driver-based.
+            </li>
+            <li>
+                <strong>Wait Time Proxy:</strong> <code>request_datetime</code> relies on app telemetry. High wait times
+                may reflect passenger lateness ("curb time") rather than driver unavailability.
+            </li>
+            <li>
+                <strong>Centroid Assumption:</strong> Spatial metrics (<code>straight_line_dist</code>,
+                <code>bearing</code>) use Zone Centroids. This underestimates distance for intra-zone trips (where dist
+                = 0).
+            </li>
+            <li>
+                <strong>Weather Localization:</strong> Weather data is sourced from a single station (Central Park).
+                Conditions at JFK or Staten Island may vary.
+            </li>
+        </ul>
+
+        <h3 class="text-2xl font-semibold mb-4">License & Citation</h3>
+        <p class="mb-4">
+            This project utilizes public data provided by the <strong>New York City Taxi and Limousine Commission
+                (TLC)</strong>.
+        </p>
+        <ul class="list-disc pl-6 space-y-2 mb-6 text-uber-gray600 dark:text-uber-gray500">
+            <li><strong>Source:</strong> <a href="https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page"
+                    class="underline hover:text-uber-black dark:hover:text-white">NYC TLC Trip Record Data</a>.</li>
+            <li><strong>Rights:</strong> Data is made available under the <strong>Freedom of Information Law
+                    (FOIL)</strong> and is in the public domain for immediate download and analysis.</li>
+            <li><strong>Disclaimer:</strong> The TLC makes no representations as to the accuracy of these data. This
+                project is an independent analysis and is not endorsed by the NYC TLC, nor is it related to Uber
+                Technologies, Inc.</li>
+        </ul>
+
+        <h4 class="text-xl font-semibold mb-3">External Data Credits</h4>
+        <ul class="list-disc pl-6 space-y-2 text-sm text-uber-gray600 dark:text-uber-gray500">
+            <li><strong>Weather:</strong> <a href="https://www.visualcrossing.com/"
+                    class="underline hover:text-uber-black dark:hover:text-white">Visual Crossing Weather API</a>.</li>
+            <li><strong>Shapefiles:</strong> <a href="https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page"
+                    class="underline hover:text-uber-black dark:hover:text-white">TLC NYC Trip Record Data</a>.</li>
+            <li><strong>Inflation data:</strong> Consumer Price Index for All Urban Consumers: Private Transportation in
+                New York-Newark-Jersey City (CUURA101SAT1) - <a href="https://fred.stlouisfed.org/series/CUURA101SAT1"
+                    class="underline hover:text-uber-black dark:hover:text-white">FRED, Federal Reserve Bank of St.
+                    Louis</a></li>
+            <li><strong>Fuel price:</strong> <a
+                    href="https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=pet&s=emm_epmr_pte_y35ny_dpg&f=m"
+                    class="underline hover:text-uber-black dark:hover:text-white">U.S. Energy Information Administration
+                    (EIA)</a></li>
+        </ul>
+    </div>
+</section>

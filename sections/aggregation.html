@@ -1,0 +1,445 @@
+<section id="aggregation" class="mb-24 scroll-mt-32">
+    <h2 class="text-3xl font-bold mb-8 flex items-center gap-3">
+        <span class="text-uber-green">4.</span> Aggregation & Sampling Strategy
+    </h2>
+    <div class="prose prose-lg dark:prose-invert max-w-none">
+        
+        <h3 class="text-xl font-semibold mb-4">The "Two-Tier" Data Architecture</h3>
+        <p class="mb-6">
+            A 70GB dataset is too large for rapid exploration and visualization. We solved this by splitting the output into two distinct tiers, serving different analytical needs.
+        </p>
+
+        <h4 class="text-2xl font-semibold mb-3">Tier 1: Stratified Sampling</h4>
+        <ul class="list-disc pl-6 space-y-2 mb-8 text-uber-gray600 dark:text-uber-gray500">
+            <li><strong>File:</strong> <code>tlc_sample_20XX.parquet</code> (split yearly, or monthly - can be configured).</li>
+            <li><strong>Size:</strong> ~800MB total (1% of population) - that is still 10M rows!</li>
+            <li><strong>Methodology:</strong>
+                <ul class="list-circle pl-6 mt-2">
+                    <li>We applied a <strong>1% Stratified Random Sample</strong> to each monthly file.</li>
+                    <li><strong>Why Stratified?</strong> Randomly sampling the whole dataset might bias towards recent years (higher volume), or randomly sampling most lower fare trips, etc. Our method ensures Jan 2019 is represented exactly as proportionally as Jan 2025, and for most use cases, simply multiplying back up by 100x gives a decent estimate of totals, preserving the trends and more.</li>
+                </ul>
+            </li>
+            <li><strong>Use Case:</strong> This dataset preserves the <strong>micro-structure</strong> of the data. Use it for:
+                <ul class="list-circle pl-6 mt-2">
+                    <li>Distribution analysis (Boxplots, Histograms).</li>
+                    <li>Correlation studies (e.g., "Do tips increase when speed decreases?").</li>
+                    <li>Machine Learning training.</li>
+                </ul>
+            </li>
+        </ul>
+
+        <h4 class="text-2xl font-semibold mb-3">Tier 2: Aggregated Data Marts</h4>
+        <ul class="list-disc pl-6 space-y-2 mb-8 text-uber-gray600 dark:text-uber-gray500">
+            <li><strong>Files:</strong> 4 Aggregated Parquet/CSV files.</li>
+            <li><strong>Size:</strong> ~250MB total.</li>
+            <li><strong>Methodology:</strong>
+                <ul class="list-circle pl-6 mt-2">
+                    <li>These files contain <strong>100% of the data volume</strong>, pre-aggregated by specific dimensions.</li>
+                    <li>Because they use the full population, they are the "Ground Truth" for volume and revenue reporting.</li>
+                </ul>
+            </li>
+            <li><strong>Use Case:</strong> High-level dashboards, Maps, and KPI tracking.</li>
+        </ul>
+
+        <h3 class="text-2xl font-semibold mb-6 mt-12">Aggregate Data Dictionaries</h3>
+
+        <!-- Mart 1 -->
+        <div class="mb-10">
+            <h4 class="text-xl font-bold mb-3">Mart 1: The Timeline Backbone (<code>agg_timeline_hourly.parquet</code>)</h4>
+            <ul class="list-disc pl-6 space-y-1 mb-4 text-sm text-uber-gray600 dark:text-uber-gray500">
+                <li><strong>Grain:</strong> Hourly.</li>
+                <li><strong>Purpose:</strong> The source of truth for volume trends, seasonality, and long-term growth. It captures the exact moment demand collapsed during COVID and the recovery curve, and everything else in between.</li>
+            </ul>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-uber-gray100 dark:bg-uber-darkcard text-uber-gray600 dark:text-uber-gray500 uppercase tracking-wider">
+                        <tr>
+                            <th class="p-3 rounded-tl-lg">Feature Name</th>
+                            <th class="p-3">Type</th>
+                            <th class="p-3">Definition</th>
+                            <th class="p-3 rounded-tr-lg">Rationale</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-uber-gray300 dark:divide-uber-darkborder">
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_year</td>
+                            <td class="p-3">Int32</td>
+                            <td class="p-3">Year of trip.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Time hierarchy.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_month</td>
+                            <td class="p-3">UInt32</td>
+                            <td class="p-3">Month of trip (1-12).</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Seasonality.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_day</td>
+                            <td class="p-3">UInt32</td>
+                            <td class="p-3">Day of month (1-31).</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Daily volume tracking.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_hour</td>
+                            <td class="p-3">UInt32</td>
+                            <td class="p-3">Hour of day (0-23).</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Intraday patterns.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">borough_flow_type</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">e.g., `manhattan_internal`.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Analyzing Commuter vs. Intra-borough trends.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">trip_archetype</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">e.g., `commute`, `nightlife`.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Analyzing behavioral segments.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">cultural_day_type</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">e.g., `weekend_night`.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Distinguishing nightlife demand.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">trip_count</td>
+                            <td class="p-3">UInt32</td>
+                            <td class="p-3">Total number of trips in this hour/group.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Primary Volume Metric.**</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">total_fare_amt</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Sum of Base Fares.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Core Revenue (Platform + Driver).</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">total_driver_pay</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Sum of Driver Pay.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Total Driver Earnings pool.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">total_cbd_fee</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Sum of CBD Congestion Fees.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Impact of 2025 policy.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">total_revenue_gross</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Sum of Total Rider Cost.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Gross Booking Value (GBV).**</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">total_tips</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Sum of Tips.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Total "Generosity Economy".</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">avg_trip_km</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Mean distance traveled.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Detecting "Short Trip" trends.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">avg_speed_kmh</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Mean travel speed.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Detecting systemic congestion.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">bad_weather_count</td>
+                            <td class="p-3">UInt32</td>
+                            <td class="p-3">Count of trips during `is_bad_weather=1`.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Weather impact volume.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">extreme_weather_count</td>
+                            <td class="p-3">UInt32</td>
+                            <td class="p-3">Count of trips during `is_extreme_weather=1`.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Chaos impact volume.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Mart 2 -->
+        <div class="mb-10">
+            <h4 class="text-xl font-bold mb-3">Mart 2: The Network Backbone (<code>agg_network_monthly.parquet</code>)</h4>
+            <ul class="list-disc pl-6 space-y-1 mb-4 text-sm text-uber-gray600 dark:text-uber-gray500">
+                <li><strong>Grain:</strong> Monthly by Route (Origin-Destination).</li>
+                <li><strong>Purpose:</strong> The engine for geospatial analysis. By pre-calculating the volume and speed for every Zone-to-Zone pair, we enable instant heatmap generation without crunching a billion rows.</li>
+            </ul>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-uber-gray100 dark:bg-uber-darkcard text-uber-gray600 dark:text-uber-gray500 uppercase tracking-wider">
+                        <tr>
+                            <th class="p-3 rounded-tl-lg">Feature Name</th>
+                            <th class="p-3">Type</th>
+                            <th class="p-3">Definition</th>
+                            <th class="p-3 rounded-tr-lg">Rationale</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-uber-gray300 dark:divide-uber-darkborder">
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_year</td>
+                            <td class="p-3">Int32</td>
+                            <td class="p-3">Year.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Time hierarchy.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_month</td>
+                            <td class="p-3">UInt32</td>
+                            <td class="p-3">Month.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Time hierarchy.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">PULocationID</td>
+                            <td class="p-3">Int32</td>
+                            <td class="p-3">Origin Zone ID.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Map Join Key.**</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">DOLocationID</td>
+                            <td class="p-3">Int32</td>
+                            <td class="p-3">Destination Zone ID.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Map Join Key.**</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_borough</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">Origin Borough.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">High-level filtering.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">dropoff_borough</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">Destination Borough.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">High-level filtering.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">trip_count</td>
+                            <td class="p-3">UInt32</td>
+                            <td class="p-3">Volume on this specific route.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Route Popularity (Edge Weight).</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">avg_duration_min</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Mean trip time.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Route Duration.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">avg_cost</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Mean Total Rider Cost.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">"How expensive is this route?"</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">avg_displacement_speed</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Mean straight-line speed.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Gridlock Metric.** Low values = inefficient route.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">avg_wait_time</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Mean time (Request $\to$ Pickup).</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Service Quality.** Identifies underserved zones.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">avg_driver_response</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Mean time (Request $\to$ Arrival).</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Driver Supply proximity.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Mart 3 -->
+        <div class="mb-10">
+            <h4 class="text-xl font-bold mb-3">Mart 3: The Economic Backbone (<code>agg_pricing_distribution.parquet</code>)</h4>
+            <ul class="list-disc pl-6 space-y-1 mb-4 text-sm text-uber-gray600 dark:text-uber-gray500">
+                <li><strong>Grain:</strong> Daily by Context (Weather/Time).</li>
+                <li><strong>Purpose:</strong> A deep dive into the "Wallet War." It tracks how Driver Pay Share and Pricing Surges fluctuate based on weather and time of day.</li>
+            </ul>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-uber-gray100 dark:bg-uber-darkcard text-uber-gray600 dark:text-uber-gray500 uppercase tracking-wider">
+                        <tr>
+                            <th class="p-3 rounded-tl-lg">Feature Name</th>
+                            <th class="p-3">Type</th>
+                            <th class="p-3">Definition</th>
+                            <th class="p-3 rounded-tr-lg">Rationale</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-uber-gray300 dark:divide-uber-darkborder">
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_date</td>
+                            <td class="p-3">Date</td>
+                            <td class="p-3">Calendar Date.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Daily grouping.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">time_of_day_bin</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">e.g., `morning_rush`.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Intraday economic cycles.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">weather_state</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">e.g., `snowing`.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Weather impact on price.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">borough_flow_type</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">e.g., `outer_inter`.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Geographic economic variance.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">trip_count</td>
+                            <td class="p-3">UInt32</td>
+                            <td class="p-3">Volume.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Sample size context.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">avg_driver_share</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Mean (Driver Pay / Base Fare).</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Fairness.** Does share drop during surges?</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">std_driver_share</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Standard Deviation of Share.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Volatility.** Is driver pay consistent or gambling?</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">avg_take_rate</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Mean (1 - Driver Share).</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Platform Margin proxy.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">avg_tip_pct</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Mean (Tips / Base Fare).</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Generosity.** Does rain increase tips?</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">avg_hourly_wage</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Mean (Driver Pay / Duration).</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Livability.** Earnings per hour worked.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">median_fare</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">50th Percentile Base Fare.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">"Typical Price."</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">p90_fare_surge_proxy</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">90th Percentile Base Fare.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Surge Detector.** High P90 indicates price spikes.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">dominant_rain</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">Most common rain intensity (Mode).</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Context for the day.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Mart 4 -->
+        <div class="mb-10">
+            <h4 class="text-xl font-bold mb-3">Mart 4: The Executive Summary (<code>agg_executive_daily.csv</code>)</h4>
+            <ul class="list-disc pl-6 space-y-1 mb-4 text-sm text-uber-gray600 dark:text-uber-gray500">
+                <li><strong>Grain:</strong> Daily (Global).</li>
+                <li><strong>Purpose:</strong> A lightweight CSV for quick KPI cards (Total Revenue, Total Volume) and Excel-based "Big Number" tracking.</li>
+            </ul>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-uber-gray100 dark:bg-uber-darkcard text-uber-gray600 dark:text-uber-gray500 uppercase tracking-wider">
+                        <tr>
+                            <th class="p-3 rounded-tl-lg">Feature Name</th>
+                            <th class="p-3">Type</th>
+                            <th class="p-3">Definition</th>
+                            <th class="p-3 rounded-tr-lg">Rationale</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-uber-gray300 dark:divide-uber-darkborder">
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_date</td>
+                            <td class="p-3">Date</td>
+                            <td class="p-3">Calendar Date.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Time Index.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">total_trips</td>
+                            <td class="p-3">Int64</td>
+                            <td class="p-3">Total daily volume.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Headline Volume.**</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">total_fare_revenue</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Total Base Fare.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Core Revenue.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">total_gross_booking_value</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Total Rider Cost (All in).</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Headline GBV.**</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">total_tips</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Total Tips.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Total Tip Economy.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">total_km_traveled</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Sum of Trip KMs.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Fleet Mileage.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">bad_weather_trip_count</td>
+                            <td class="p-3">Int64</td>
+                            <td class="p-3">Trips during bad weather.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">"How many miserable rides?"</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">extreme_weather_trip_count</td>
+                            <td class="p-3">Int64</td>
+                            <td class="p-3">Trips during extreme weather.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">"How many chaotic rides?"</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">avg_wait_time</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Global mean wait time.</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Headline Service Quality.**</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</section>

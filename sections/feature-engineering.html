@@ -1,0 +1,673 @@
+<section id="feature-engineering" class="mb-24 scroll-mt-32">
+    <h2 class="text-3xl font-bold mb-8 flex items-center gap-3">
+        <span class="text-uber-green">3.3</span> Feature Engineering: The Insight Engine
+    </h2>
+    <div class="prose prose-lg dark:prose-invert max-w-none">
+        <p class="mb-6">
+            Cleaning the data was only the first step. To answer questions about "Inefficiency," "Nightlife,"
+            and "Inflation," we engineered <strong>over 45 new features</strong>, transforming raw logs into a rich analytical dataset.
+        </p>
+
+        <!-- Subsection descriptions -->
+        <h4 class="text-xl font-semibold mb-3">1. Temporal Reconstruction</h4>
+        <p class="mb-2">Raw timestamps (<code>2019-02-01 14:32:05</code>) are useless for behavioral analysis. We deconstructed time into:</p>
+        <ul class="list-disc pl-6 space-y-1 mb-6 text-uber-gray600 dark:text-uber-gray500">
+            <li><strong>Granularity:</strong> Extracted <code>Year</code>, <code>Month</code>, <code>Day</code>, <code>Hour</code>, <code>DOW</code> (Monday=1, Sunday=7).</li>
+            <li><strong>Cyclical Features:</strong> Converted Hour/Day/Month into <code>Sin</code> and <code>Cos</code> components. This allows ML models to understand that Hour 23 (11 PM) is "close" to Hour 0 (Midnight), preventing the "cliff" effect of linear time.</li>
+            <li><strong>Cultural Time:</strong> We created <code>cultural_day_type</code> to map rides to human behavior, not the calendar. <em>Example:</em> A ride at 2 AM Saturday is technically "Saturday Morning," but culturally it is <strong>"Friday Night Nightlife."</strong> This feature captures that nuance.</li>
+            <li><strong>Pandemic Phase:</strong> We tagged every ride with its COVID era (<code>Pre-Pandemic</code>, <code>Lockdown</code>, <code>Recovery</code>, <code>New Normal</code>) to enable Era-based comparisons.</li>
+        </ul>
+
+        <h4 class="text-xl font-semibold mb-3">2. Geospatial Intelligence</h4>
+        <p class="mb-2">We moved beyond simple "Zone IDs" to measure flow and efficiency.</p>
+        <ul class="list-disc pl-6 space-y-1 mb-6 text-uber-gray600 dark:text-uber-gray500">
+            <li><strong>Centroid Physics:</strong> By joining Shapefiles, we calculated the <strong>Straight-Line Distance</strong> (Haversine) between Pickup and Dropoff centroids.</li>
+            <li><strong>Tortuosity Index:</strong> The ratio of <code>Driven Distance / Straight Line Distance</code>. <em>Why?</em> This is our "Gridlock Detector." A high index (>1.5) means the driver had to take a massive detour (highway) or got lost in complex streets. It separates "Distance due to Speed" from "Distance due to Inefficiency."</li>
+            <li><strong>Borough Flow:</strong> We categorized trips into transit archetypes: <code>Manhattan Internal</code>, <code>Manhattan &lt;-&gt; Outer</code>, <code>Outer &lt;-&gt; Outer</code>. This highlights the "Transit Desert" economy where Uber replaces the G subway.</li>
+        </ul>
+
+        <h4 class="text-xl font-semibold mb-3">3. Economic Reconstruction</h4>
+        <p class="mb-2">We rebuilt the entire financial stack to track money flow.</p>
+        <ul class="list-disc pl-6 space-y-1 mb-6 text-uber-gray600 dark:text-uber-gray500">
+            <li><strong>Total Cost:</strong> We summed all 8 financial components (Fare, Tips, Surcharges, Taxes, Tolls, Fees) to derive the <strong>Gross Booking Value (GBV)</strong>—the actual price paid by the rider.</li>
+            <li><strong>The "Subsidy" Detector:</strong> We calculated <code>driver_revenue_share</code> (Driver Pay / Base Fare). <em>Why?</em> This acts as a proxy for platform subsidies, and also the proxy for Uber take rate (1 - driver_revenue_share) - while not accurate (actual values are classified), it gives us a general sense of how much Uber is taking from each fare, and how much of the base fare for each trip is going to the driver.</li>
+            <li><strong>Generosity Metrics:</strong> We standardized tipping behavior into <code>tipping_pct</code> and <code>is_generous_tip</code> (>25%) to study the psychology of gratitude versus obligation.</li>
+        </ul>
+
+        <h4 class="text-xl font-semibold mb-3">4. Meteorological Context</h4>
+        <p class="mb-2">We didn't just dump raw weather data; we categorized it based on <strong>human impact</strong>, binned into intensity thresholds. Derived from standard meteorological thresholds, but slightly adjusted to account for NYC specifically, in the context of traffic impact.</p>
+        <ul class="list-disc pl-6 space-y-1 mb-6 text-uber-gray600 dark:text-uber-gray500">
+            <li><strong>Temperature:</strong> <code>Freezing</code> (&lt;0), <code>Cold</code> (0-10), <code>Mild</code> (10-20), <code>Warm</code> (20-28), <code>Hot</code> (>28).</li>
+            <li><strong>Rain:</strong> <code>Light</code> (&lt;1mm), <code>Moderate</code> (1-5mm), <code>Heavy</code> (>5mm).</li>
+            <li><strong>Snow:</strong> <code>Trace</code> (&lt;2.5cm), <code>Moderate</code> (2.5-10cm), <code>Heavy</code> (10-20cm), <code>Severe</code> (>20cm).</li>
+            <li><strong>Wind:</strong> <code>Breezy</code> (15-40km/h), <code>Windy</code> (40-62km/h), <code>Gale</code> (>62km/h).</li>
+            <li><strong>Visibility:</strong> <code>Reduced</code> (1-10km), <code>Poor/Fog</code> (&lt;1km).</li>
+            <li><strong>The "Chaos" Hierarchy:</strong> We created a <code>weather_state</code> categorical that prioritizes disruption. <em>Logic:</em> If it is raining <em>and</em> snowing, the state is <strong>Snowing</strong> (because snow have larger impact on traffic than simply raining).</li>
+        </ul>
+
+        <h3 class="text-2xl font-semibold mb-4 mt-12">Processed Data Dictionary (Schema)</h3>
+        <p class="text-sm text-uber-gray600 dark:text-uber-gray500 mb-6"><em>Total Features: 70. Grouped by Analytical Domain.</em></p>
+
+        <div class="mb-10">
+            <h4 class="text-xl font-bold mb-4 flex items-center gap-2">
+                <span class="w-2 h-8 bg-uber-black dark:bg-uber-white rounded-sm"></span>
+                Group 1: Temporal Context (17 Features)
+            </h4>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-uber-gray100 dark:bg-uber-darkcard text-uber-gray600 dark:text-uber-gray500 uppercase tracking-wider">
+                        <tr>
+                            <th class="p-3 rounded-tl-lg">Feature Name</th>
+                            <th class="p-3">Type</th>
+                            <th class="p-3">Definition</th>
+                            <th class="p-3">Range / Values</th>
+                            <th class="p-3 rounded-tr-lg">Rationale & Usage</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-uber-gray300 dark:divide-uber-darkborder">
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_datetime</td>
+                            <td class="p-3">Datetime</td>
+                            <td class="p-3">The exact timestamp when the trip started.</td>
+                            <td class="p-3">2019–2025</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**The anchor.** Use for sorting and granular time plotting.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">dropoff_datetime</td>
+                            <td class="p-3">Datetime</td>
+                            <td class="p-3">The exact timestamp when the trip ended.</td>
+                            <td class="p-3">2019–2025</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Used to calculate duration.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_date</td>
+                            <td class="p-3">Date</td>
+                            <td class="p-3">The calendar date of the trip.</td>
+                            <td class="p-3">YYYY-MM-DD</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Optimized for grouping by day without re-casting.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_year</td>
+                            <td class="p-3">Int32</td>
+                            <td class="p-3">The year of the trip.</td>
+                            <td class="p-3">2019–2025</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">High-level yearly faceting.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_month</td>
+                            <td class="p-3">UInt32</td>
+                            <td class="p-3">The month of the trip.</td>
+                            <td class="p-3">1–12</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Seasonality analysis.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_day</td>
+                            <td class="p-3">UInt32</td>
+                            <td class="p-3">The day of the month.</td>
+                            <td class="p-3">1–31</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Intra-month trend analysis.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_hour</td>
+                            <td class="p-3">UInt32</td>
+                            <td class="p-3">The hour of the day (24h).</td>
+                            <td class="p-3">0–23</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Hourly demand analysis.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_dow</td>
+                            <td class="p-3">UInt32</td>
+                            <td class="p-3">The day of the week (ISO).</td>
+                            <td class="p-3">1 (Mon) – 7 (Sun)</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Weekly cycle analysis.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">time_of_day_bin</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">Functional categorization of the hour.</td>
+                            <td class="p-3">`morning_rush`, `midday`, `evening_rush`, `evening`, `late_night`</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Storytelling.** Better than raw hours for describing "Commute" vs "Nightlife".</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">cultural_day_type</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">A sociological definition of the day type.</td>
+                            <td class="p-3">`workday`, `weekend_night`, `weekend_day`, `sunday_rest`</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Crucial.** Distinguishes "Friday Night Party" (Weekend Night) from "Monday Morning Grind" (Workday).</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pandemic_phase</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">The COVID-19 era of the trip.</td>
+                            <td class="p-3">`pre_pandemic`, `lockdown`, `recovery`, `new_normal`</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Essential for contextualizing 2020–2021 volume drops.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">cyclical_hour_sin</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Sine transformation of the hour.</td>
+                            <td class="p-3">-1.0 to 1.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**ML Only.** Allows models to understand that Hour 23 is adjacent to Hour 0.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">cyclical_hour_cos</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Cosine transformation of the hour.</td>
+                            <td class="p-3">-1.0 to 1.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**ML Only.**</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">cyclical_month_sin</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Sine transformation of the month.</td>
+                            <td class="p-3">-1.0 to 1.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**ML Only.**</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">cyclical_month_cos</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Cosine transformation of the month.</td>
+                            <td class="p-3">-1.0 to 1.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**ML Only.**</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">cyclical_day_sin</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Sine transformation of the day of week.</td>
+                            <td class="p-3">-1.0 to 1.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**ML Only.**</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">cyclical_day_cos</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Cosine transformation of the day of week.</td>
+                            <td class="p-3">-1.0 to 1.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**ML Only.**</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="mb-10">
+            <h4 class="text-xl font-bold mb-4 flex items-center gap-2">
+                <span class="w-2 h-8 bg-uber-black dark:bg-uber-white rounded-sm"></span>
+                Group 2: Geospatial & Trip Context (10 Features)
+            </h4>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-uber-gray100 dark:bg-uber-darkcard text-uber-gray600 dark:text-uber-gray500 uppercase tracking-wider">
+                        <tr>
+                            <th class="p-3 rounded-tl-lg">Feature Name</th>
+                            <th class="p-3">Type</th>
+                            <th class="p-3">Definition</th>
+                            <th class="p-3">Range / Values</th>
+                            <th class="p-3 rounded-tr-lg">Rationale & Usage</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-uber-gray300 dark:divide-uber-darkborder">
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">PULocationID</td>
+                            <td class="p-3">Int32</td>
+                            <td class="p-3">TLC Taxi Zone ID where the trip began.</td>
+                            <td class="p-3">1–263</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Join with Shapefile for maps.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">DOLocationID</td>
+                            <td class="p-3">Int32</td>
+                            <td class="p-3">TLC Taxi Zone ID where the trip ended.</td>
+                            <td class="p-3">1–263</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Join with Shapefile for maps.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_borough</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">The NYC Borough of the pickup.</td>
+                            <td class="p-3">Manhattan, Brooklyn, Queens, Bronx, Staten Island, EWR</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">High-level geographic grouping.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">dropoff_borough</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">The NYC Borough of the dropoff.</td>
+                            <td class="p-3">(Same as above)</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">High-level geographic grouping.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pickup_zone</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">The name of the neighborhood (e.g., "East Village").</td>
+                            <td class="p-3">(Variable)</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Human-readable labels for charts.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">dropoff_zone</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">The name of the neighborhood.</td>
+                            <td class="p-3">(Variable)</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Human-readable labels for charts.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">borough_flow</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">A string describing the movement path.</td>
+                            <td class="p-3">e.g., "Manhattan -> Brooklyn"</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Simplifies flow analysis (Sankey diagrams).</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">borough_flow_type</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">Classification of the transit path.</td>
+                            <td class="p-3">`manhattan_internal`, `manhattan_outer_commute`, `outer_inter`, `outer_intra`</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Storytelling.** Highlights the "Transit Desert" economy (Outer-to-Outer trips).</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">trip_type_zone</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">Granular classification of distance.</td>
+                            <td class="p-3">`intra_zone`, `intra_borough`, `inter_borough`</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Differentiates local errands from cross-city commutes.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">trip_archetype</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">A behavioral classification of the trip's purpose.</td>
+                            <td class="p-3">`commute`, `nightlife`, `airport`, `leisure`</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Storytelling.** Inferred based on Time + Location + Day.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="mb-10">
+            <h4 class="text-xl font-bold mb-4 flex items-center gap-2">
+                <span class="w-2 h-8 bg-uber-black dark:bg-uber-white rounded-sm"></span>
+                Group 3: Physics & Service Metrics (11 Features)
+            </h4>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-uber-gray100 dark:bg-uber-darkcard text-uber-gray600 dark:text-uber-gray500 uppercase tracking-wider">
+                        <tr>
+                            <th class="p-3 rounded-tl-lg">Feature Name</th>
+                            <th class="p-3">Type</th>
+                            <th class="p-3">Definition</th>
+                            <th class="p-3">Range / Values</th>
+                            <th class="p-3 rounded-tr-lg">Rationale & Usage</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-uber-gray300 dark:divide-uber-darkborder">
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">trip_km</td>
+                            <td class="p-3">Float32</td>
+                            <td class="p-3">The actual distance driven (Odometer).</td>
+                            <td class="p-3">0.15 – 120.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">The basis for billing and cost analysis.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">duration_seconds</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Total trip time in seconds.</td>
+                            <td class="p-3">60 – 15,000</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">The raw measure of time spent.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">duration_min</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Total trip time in minutes.</td>
+                            <td class="p-3">1.0 – 250.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Human-readable duration.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">straight_line_dist_km</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">The "As the crow flies" distance between centroids.</td>
+                            <td class="p-3">> 0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Used to calculate efficiency.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">bearing_degrees</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">The compass direction of travel (0=North).</td>
+                            <td class="p-3">0.0 – 360.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Analyzes flow direction (e.g., "Everyone heads North in the evening").</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">speed_kmh</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Average speed based on *driven* distance (`trip_km` / `time`).</td>
+                            <td class="p-3">1.0 – 100.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Measures how fast the wheels turned. High on highways.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">displacement_speed_kmh</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Effective speed based on *straight line* distance.</td>
+                            <td class="p-3">> 0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**The Gridlock Detector.** Measures how fast you *actually* got closer to your destination. Low values = Stuck in traffic.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">tortuosity_index</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Ratio of Driven Dist / Straight Line Dist.</td>
+                            <td class="p-3">>= 1.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Efficiency Metric.** 1.0 = Straight line. > 1.5 = Detours or complex street grids.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">total_wait_time_min</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Time between App Request and Pickup.</td>
+                            <td class="p-3">> 0 (or Null)</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Measures system latency and passenger wait pain. **Nulls:** Negative values (Time Travel paradox) forced to `Null`.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">driver_response_time_min</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Time between App Request and Driver Arrival.</td>
+                            <td class="p-3">> 0 (or Null)</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Measures driver supply availability. **Nulls:** *same as above.*</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">boarding_time_min</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Time between Driver Arrival and Trip Start.</td>
+                            <td class="p-3">> 0 (or Null)</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Measures "Curb Friction" (Passenger lateness). **Nulls:** *same as above.*</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="mb-10">
+            <h4 class="text-xl font-bold mb-4 flex items-center gap-2">
+                <span class="w-2 h-8 bg-uber-black dark:bg-uber-white rounded-sm"></span>
+                Group 4: Financials & Economics (17 Features)
+            </h4>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-uber-gray100 dark:bg-uber-darkcard text-uber-gray600 dark:text-uber-gray500 uppercase tracking-wider">
+                        <tr>
+                            <th class="p-3 rounded-tl-lg">Feature Name</th>
+                            <th class="p-3">Type</th>
+                            <th class="p-3">Definition</th>
+                            <th class="p-3">Range / Values</th>
+                            <th class="p-3 rounded-tr-lg">Rationale & Usage</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-uber-gray300 dark:divide-uber-darkborder">
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">base_passenger_fare</td>
+                            <td class="p-3">Float32</td>
+                            <td class="p-3">The core price of the ride (before taxes/tips).</td>
+                            <td class="p-3">0.10 – 300.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">The baseline demand signal.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">tolls</td>
+                            <td class="p-3">Float32</td>
+                            <td class="p-3">Bridge and tunnel fees.</td>
+                            <td class="p-3">0.0 – 50.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Pass-through costs.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">bcf</td>
+                            <td class="p-3">Float32</td>
+                            <td class="p-3">Black Car Fund tax (~2.5-3%).</td>
+                            <td class="p-3">0.0 – 15.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Mandatory NY State tax.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">sales_tax</td>
+                            <td class="p-3">Float32</td>
+                            <td class="p-3">NY Sales Tax (~8.875%).</td>
+                            <td class="p-3">0.0 – 40.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Mandatory tax.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">congestion_surcharge</td>
+                            <td class="p-3">Float32</td>
+                            <td class="p-3">Fee for entering Manhattan (< 96th St).</td>
+                            <td class="p-3">0.0 – 2.75</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Policy impact metric.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">airport_fee</td>
+                            <td class="p-3">Float32</td>
+                            <td class="p-3">Fee for pickup/dropoff at JFK/LGA/EWR.</td>
+                            <td class="p-3">0.0 – 6.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Tourism tax.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">cbd_congestion_fee</td>
+                            <td class="p-3">Float32</td>
+                            <td class="p-3">The new congestion zone fee (Jan 2025+).</td>
+                            <td class="p-3">0.0 or 2.50</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**New.** Tracks the impact of the 2025 policy change.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">tips</td>
+                            <td class="p-3">Float32</td>
+                            <td class="p-3">Voluntary gratuity from passenger.</td>
+                            <td class="p-3">0.0 – 300.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Measures customer satisfaction/generosity.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">driver_pay</td>
+                            <td class="p-3">Float32</td>
+                            <td class="p-3">The net earnings of the driver.</td>
+                            <td class="p-3">0.01 – 200.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Key Target.** Used to calculate driver wages.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">total_rider_cost</td>
+                            <td class="p-3">Float32</td>
+                            <td class="p-3">Sum of ALL 8 financial columns above.</td>
+                            <td class="p-3">> 0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**The True Cost.** What the rider actually saw on their credit card bill.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">cost_per_km</td>
+                            <td class="p-3">Float32</td>
+                            <td class="p-3">Total Cost / Trip KM.</td>
+                            <td class="p-3">> 0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Luxury Index.** High values indicate premium zones (Short Manhattan trips).</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">driver_revenue_share</td>
+                            <td class="p-3">Float32</td>
+                            <td class="p-3">Driver Pay / Base Fare.</td>
+                            <td class="p-3">0.0 – 1.0+</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Fairness Metric.** What % of the core fare goes to the driver?</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">uber_take_rate_proxy</td>
+                            <td class="p-3">Float32</td>
+                            <td class="p-3">1 - Driver Revenue Share.</td>
+                            <td class="p-3">< 1.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Platform Tax.** Estimated % kept by Uber.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">pay_per_hour</td>
+                            <td class="p-3">Float32</td>
+                            <td class="p-3">Driver Pay / Duration (Hours).</td>
+                            <td class="p-3">> 0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Livability Metric.** Can be compared to Minimum Wage.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">tipping_pct</td>
+                            <td class="p-3">Float32</td>
+                            <td class="p-3">Tips / Base Fare.</td>
+                            <td class="p-3">0.0 – 4.0</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Normalized generosity metric.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">is_generous_tip</td>
+                            <td class="p-3">UInt8</td>
+                            <td class="p-3">Flag if Tip > 25% of Fare.</td>
+                            <td class="p-3">0 / 1</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Identifies "Whale" tippers.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">is_subsidized</td>
+                            <td class="p-3">UInt8</td>
+                            <td class="p-3">Flag if Driver Pay > Base Fare.</td>
+                            <td class="p-3">0 / 1</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Identifies trips where Uber likely lost money to incentivize drivers.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="mb-10">
+            <h4 class="text-xl font-bold mb-4 flex items-center gap-2">
+                <span class="w-2 h-8 bg-uber-black dark:bg-uber-white rounded-sm"></span>
+                Group 5: Service Flags (5 Features)
+            </h4>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-uber-gray100 dark:bg-uber-darkcard text-uber-gray600 dark:text-uber-gray500 uppercase tracking-wider">
+                        <tr>
+                            <th class="p-3 rounded-tl-lg">Feature Name</th>
+                            <th class="p-3">Type</th>
+                            <th class="p-3">Definition</th>
+                            <th class="p-3">Range / Values</th>
+                            <th class="p-3 rounded-tr-lg">Rationale & Usage</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-uber-gray300 dark:divide-uber-darkborder">
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">shared_request_flag</td>
+                            <td class="p-3">UInt8</td>
+                            <td class="p-3">Did passenger request a pool?</td>
+                            <td class="p-3">0 / 1</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Measures willingness to share.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">shared_match_flag</td>
+                            <td class="p-3">UInt8</td>
+                            <td class="p-3">Did the pool actually match?</td>
+                            <td class="p-3">0 / 1</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Measures system liquidity/density.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">access_a_ride_flag</td>
+                            <td class="p-3">UInt8</td>
+                            <td class="p-3">Administered by MTA?</td>
+                            <td class="p-3">0 / 1</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Paratransit integration.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">wav_request_flag</td>
+                            <td class="p-3">UInt8</td>
+                            <td class="p-3">Requested Wheelchair Accessible Vehicle?</td>
+                            <td class="p-3">0 / 1</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Equity/Accessibility metric.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">wav_match_flag</td>
+                            <td class="p-3">UInt8</td>
+                            <td class="p-3">Was the vehicle WAV?</td>
+                            <td class="p-3">0 / 1</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Supply side of accessibility.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="mb-10">
+            <h4 class="text-xl font-bold mb-4 flex items-center gap-2">
+                <span class="w-2 h-8 bg-uber-black dark:bg-uber-white rounded-sm"></span>
+                Group 6: Meteorological Context (10 Features)
+            </h4>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-uber-gray100 dark:bg-uber-darkcard text-uber-gray600 dark:text-uber-gray500 uppercase tracking-wider">
+                        <tr>
+                            <th class="p-3 rounded-tl-lg">Feature Name</th>
+                            <th class="p-3">Type</th>
+                            <th class="p-3">Definition</th>
+                            <th class="p-3">Range / Values</th>
+                            <th class="p-3 rounded-tr-lg">Rationale & Usage</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-uber-gray300 dark:divide-uber-darkborder">
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">temp</td>
+                            <td class="p-3">Float64</td>
+                            <td class="p-3">Air temperature in Celsius.</td>
+                            <td class="p-3">idk man</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Raw thermal comfort.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">conditions</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">Raw summary from API.</td>
+                            <td class="p-3">e.g., "Rain, Overcast"</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Descriptive text.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">rain_intensity</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">Categorical rain volume.</td>
+                            <td class="p-3">`none`, `light`, `moderate`, `heavy`</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Granular impact of rain on traffic.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">snow_intensity</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">Categorical snow volume.</td>
+                            <td class="p-3">`none`, `trace_light`, `moderate`, `heavy`, `severe`</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Chaos Metric.** Snow stops the city.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">wind_intensity</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">Categorical wind speed.</td>
+                            <td class="p-3">`calm`, `breezy`, `windy`, `gale`</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">High wind increases "Walk Aversion".</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">visibility_status</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">Categorical visibility distance.</td>
+                            <td class="p-3">`clear`, `reduced`, `poor_fog`</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Safety metric impacting speed.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">weather_state</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">Hierarchical summary of the hour.</td>
+                            <td class="p-3">`snowing`, `snow_on_ground`, `raining`, `clear_cloudy`</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">**Best for Viz.** Prioritizes the most disruptive weather (Snow > Rain).</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">is_bad_weather</td>
+                            <td class="p-3">UInt8</td>
+                            <td class="p-3">Flag for generally poor conditions.</td>
+                            <td class="p-3">0 / 1</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Simple filter for "Miserable Days".</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">is_extreme_weather</td>
+                            <td class="p-3">UInt8</td>
+                            <td class="p-3">Flag for severe/dangerous conditions.</td>
+                            <td class="p-3">0 / 1</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Identifies outlier days (blizzards, hurricanes).</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-mono text-uber-green">temp_bin</td>
+                            <td class="p-3">String</td>
+                            <td class="p-3">Categorical temperature bucket.</td>
+                            <td class="p-3">`freezing`, `cold`, `mild`, `warm`, `hot`</td>
+                            <td class="p-3 text-uber-gray600 dark:text-uber-gray500">Simplifies thermal analysis.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>

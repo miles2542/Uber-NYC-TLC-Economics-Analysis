@@ -1,0 +1,193 @@
+<section id="transformation" class="mb-24 scroll-mt-32">
+    <h2 class="text-3xl font-bold mb-8 flex items-center gap-3">
+        <span class="text-uber-green">3.</span> Transformation Pipeline
+    </h2>
+    <div class="prose prose-lg dark:prose-invert max-w-none">
+        <h3 class="text-xl font-semibold mb-4">Overview</h3>
+        <p class="mb-8">
+            The raw data tells us "A car moved from A to B." Our pipeline transforms this into "Paid routes are
+            ~8 km/h faster than free alternatives when moving from Bronx to Manhattan". We achieve this through 3
+            stages: <strong>Enrichment</strong> → <strong>Cleaning</strong> → <strong>Feature Engineering</strong>.
+        </p>
+
+        <!-- 3.1 External Enrichments -->
+        <h3 class="text-2xl font-semibold mb-4">3.1 External Enrichments</h3>
+        <p class="mb-4">We enriched the telemetry with context from the physical world.</p>
+        <ul class="list-disc pl-6 space-y-4 mb-8 text-uber-gray600 dark:text-uber-gray500">
+            <li>
+                <strong>Spatial Geometry (The Map):</strong>
+                <ul class="list-circle pl-6 mt-2">
+                    <li><strong>Source:</strong> NYC Taxi Zone Shapefiles (<code>.shp</code>).</li>
+                    <li><strong>Processing:</strong> Converted complex Polygons into <strong>Centroids (Lat/Lon
+                            points)</strong>.</li>
+                    <li><strong>Why:</strong> Raw data only gives Zone IDs (e.g., <code>161</code>). By converting these
+                        to coordinates, we can calculate <strong>Straight-Line Distance</strong> and
+                        <strong>Bearing</strong>, enabling us to detect detours (<code>Driven Dist</code> vs
+                        <code>Straight Dist</code>).</li>
+                </ul>
+            </li>
+            <li>
+                <strong>Meteorological Context (The Environment):</strong>
+                <ul class="list-circle pl-6 mt-2">
+                    <li><strong>Source:</strong> Visual Crossing Weather API.</li>
+                    <li><strong>Data:</strong> Hourly weather data (Temperature, Precipitation, Snow, Wind) for NYC from
+                        2019 to 2025 (<code>get_weather_data.ipynb</code>).</li>
+                    <li><strong>Granularity:</strong> Hourly resolution for "New York, NY".</li>
+                    <li><strong>Why:</strong> Demand is weather-dependent. We joined weather data on
+                        <code>pickup_hour</code> to analyze how Rain, Snow, and Extreme Cold impact pricing and tipping
+                        behavior.</li>
+                </ul>
+            </li>
+        </ul>
+
+        <!-- 3.2 Data Hygiene -->
+        <h3 class="text-2xl font-semibold mb-4">3.2 Data Hygiene: The "Great Filter"</h3>
+        <p class="mb-4">
+            Raw telemetry data is inherently noisy. GPS sensors drift, app sessions hang, and human entry errors occur.
+            Before analysis, we established a "Ground Truth" by enforcing physical and economic laws on the dataset.
+        </p>
+
+        <h4 class="text-xl font-semibold mb-3">1. The Diagnostic Phase (Audit)</h4>
+        <p class="mb-4">We built a custom auditing tool (<code>universal_audit.py</code>) to scan the raw parquet files
+            without loading them entirely into memory. This generated a "Health Matrix" revealing three critical issues:
+        </p>
+        <ul class="list-disc pl-6 space-y-2 mb-6 text-uber-gray600 dark:text-uber-gray500">
+            <li><strong>Logical Paradoxes:</strong>
+                <ul class="list-circle pl-6 mt-1">
+                    <li><strong>"Time Travel":</strong> Trips where <code>dropoff_datetime < pickup_datetime</code> (For
+                        some reason, this happens every year, and only in November, funny).</li>
+                    <li><strong>"Slave Labor":</strong> Trips with valid distance but <code>driver_pay <= 0</code>
+                        (Peaked significantly in August 2019).</li>
+                    <li><strong>"Teleportation":</strong> Trips covering massive distances in seconds.</li>
+                </ul>
+            </li>
+            <li><strong>Data Completeness:</strong> High null rates in specific fee columns (e.g.,
+                <code>airport_fee</code> ~29% nulls), requiring strategic imputation (drop if important column, fill
+                with 0 for some columns, etc.).</li>
+        </ul>
+
+        <h4 class="text-xl font-semibold mb-3">2. Statistical Thresholding (The Distribution Atlas)</h4>
+        <p class="mb-4">To determine valid ranges for filtering, we did not guess. We computed the <strong>Distribution
+                Atlas</strong>: a monthly breakdown of every numerical feature's vital statistics (Min, Mean, Median,
+            P99, P99.9, Max).</p>
+        <p class="mb-4"><strong>Decision Framework:</strong></p>
+        <ol class="list-decimal pl-6 space-y-2 mb-6">
+            <li><strong>Lower Bound:</strong> Strictly positive for physical metrics (Distance/Time) and Economic
+                metrics (Fare/Pay).</li>
+            <li><strong>Upper Bound:</strong> We targeted the <strong>99.9th Percentile</strong> combined with domain
+                knowledge.
+                <ul class="list-circle pl-6 mt-1 text-uber-gray600 dark:text-uber-gray500">
+                    <li><em>Observation:</em> The Max values were often absurd (e.g., a $5,000 fare or 10,000 miles).
+                    </li>
+                    <li><em>Action:</em> We set cutoffs slightly above P99.9 but significantly below Max to remove
+                        system errors while preserving legitimate "Whale" trips.</li>
+                </ul>
+            </li>
+        </ol>
+
+        <h4 class="text-xl font-semibold mb-3">3. The Filter Rules</h4>
+        <p class="mb-4 text-sm"><em>Note:</em> while the data has <code>trip_miles</code> and <code>trip_time</code>,
+            these are often noisy. We derived our own <code>duration_seconds</code> and <code>trip_km</code> from
+            timestamps and GPS coordinates for more reliable filtering. And we use kilometers because we're not 🦅🗽.
+        </p>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead
+                    class="bg-uber-gray100 dark:bg-uber-darkcard text-uber-gray600 dark:text-uber-gray500 uppercase tracking-wider">
+                    <tr>
+                        <th class="p-4 rounded-tl-lg">Category</th>
+                        <th class="p-4">Feature</th>
+                        <th class="p-4">Condition</th>
+                        <th class="p-4 rounded-tr-lg">Rationale</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-uber-gray300 dark:divide-uber-darkborder">
+                    <tr>
+                        <td class="p-4 font-bold" rowspan="4">Physics</td>
+                        <td class="p-4">Trip Distance</td>
+                        <td class="p-4 font-mono text-uber-red">0.15 to 120 km</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Removes micro-trips (GPS jitter) and
+                            extreme regional outliers, or data entry errors.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4">Trip Duration</td>
+                        <td class="p-4 font-mono text-uber-red">60s to 15,000s</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Removes immediate cancellations (<1
+                                min) and "Zombie Sessions" (>4 hours).</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4">Speed</td>
+                        <td class="p-4 font-mono text-uber-red">1 to 100 km/h</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Cap set above NYC speed limits to
+                            account for highway speeding, but removes teleportation.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4">Location</td>
+                        <td class="p-4 font-mono text-uber-red">ID ∈ [1, 263]</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Removes <code>264</code> (Unknown) and
+                            <code>265</code> (Void) to ensure map integrity.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-bold" rowspan="3">Economics</td>
+                        <td class="p-4">Base Fare</td>
+                        <td class="p-4 font-mono text-uber-red">$0.10 to $300.00</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Ensures non-zero revenue; caps extreme
+                            data entry errors.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4">Driver Pay</td>
+                        <td class="p-4 font-mono text-uber-red">$0.01 to $200.00</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Eliminates the "Slave Labor" paradox
+                            (trips with $0). The upper bound is capped relative to base fare.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4">Tips</td>
+                        <td class="p-4 font-mono text-uber-red">Dynamic</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Logic: <code>Tip <= $50</code> OR
+                            <code>Ratio <= 400%</code>. Caps "Fat Finger" errors while preserving high-end generosity.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="p-4 font-bold" rowspan="6">Taxes & Fees</td>
+                        <td class="p-4">Congestion Surcharge</td>
+                        <td class="p-4 font-mono text-uber-red">≤ $2.75</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Aligned with Manhattan Congestion
+                            Surcharge policy.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4">Tolls</td>
+                        <td class="p-4 font-mono text-uber-red">≤ $50.00</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Covers major crossings (Verrazzano,
+                            GWB) without allowing error spikes.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4">Airport Fee</td>
+                        <td class="p-4 font-mono text-uber-red">≤ $5.00</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Standard fee is $2.50. Cap allows for
+                            Pickup+Dropoff combos. Trips that go through 3+ airports are possible, but very, very
+                            unlikely.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4">Sales Tax</td>
+                        <td class="p-4 font-mono text-uber-red">≤ $36.00</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Proportional cap based on ~8.875% of
+                            the max allowable fare, per the general laws and rules of TLC.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4">Black Car Fund</td>
+                        <td class="p-4 font-mono text-uber-red">≤ $15.00</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Proportional cap based on ~2.5-3% of
+                            the max fare.</td>
+                    </tr>
+                    <tr>
+                        <td class="p-4">CBD Fee</td>
+                        <td class="p-4 font-mono text-uber-red">No Filter</td>
+                        <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Left raw to capture the introduction of
+                            the fee in 2025, as it shows no extreme outliers or negative number.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>

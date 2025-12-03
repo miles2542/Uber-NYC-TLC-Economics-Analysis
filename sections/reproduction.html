@@ -1,0 +1,117 @@
+<section id="reproduction" class="mb-24 scroll-mt-32">
+    <h2 class="text-3xl font-bold mb-8 flex items-center gap-3">
+        <span class="text-uber-green">6.</span> Reproduction & Usage
+    </h2>
+    <div class="prose prose-lg dark:prose-invert max-w-none">
+        <p class="mb-8">
+            We provide two paths to use this project: <strong>Fast Track</strong> (Analysis only) and <strong>Full
+                Rebuild</strong> (Cleaning and Engineering).
+        </p>
+
+        <!-- Accordion UI -->
+        <div class="space-y-4">
+            <!-- Option 1 -->
+            <details
+                class="bg-uber-gray100 dark:bg-uber-darkcard rounded-lg border border-uber-gray300 dark:border-uber-darkborder overflow-hidden">
+                <summary
+                    class="p-6 cursor-pointer font-bold text-lg hover:bg-uber-gray200 dark:hover:bg-uber-darkborder transition-colors flex items-center justify-between">
+                    <span>Option 1: Fast Track (Recommended)</span>
+                    <span class="text-uber-gray500 text-sm font-normal">~5 minutes setup</span>
+                </summary>
+                <div class="p-6 border-t border-uber-gray300 dark:border-uber-darkborder bg-white dark:bg-black">
+                    <p class="mb-4"><em>For analysts and data scientists who want to jump straight to insights.</em></p>
+
+                    <ol class="list-decimal pl-6 space-y-3 mb-6">
+                        <li>Navigate to the <strong>Releases</strong> section of this repository.</li>
+                        <li>Download the <strong><code>TLC_NYC_Processed_Sample.zip</code></strong> and
+                            <strong><code>TLC_NYC_Aggregates.zip</code></strong> (Total ~1.3GB).</li>
+                        <li>Unzip them into the <code>data/</code> folder.</li>
+                        <li>Open any notebook in <code>analysis_notebooks/</code> and run. No <em>(too)</em> heavy
+                            computation required.</li>
+                    </ol>
+
+                    <div class="bg-uber-gray100 dark:bg-uber-darkcard p-4 rounded">
+                        <p class="text-sm font-mono">
+                            # Quick Start<br />
+                            git clone [repo-url]<br />
+                            # Download processed data from Releases<br />
+                            jupyter notebook analysis_notebooks/
+                        </p>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Option 2 -->
+            <details
+                class="bg-uber-gray100 dark:bg-uber-darkcard rounded-lg border border-uber-gray300 dark:border-uber-darkborder overflow-hidden">
+                <summary
+                    class="p-6 cursor-pointer font-bold text-lg hover:bg-uber-gray200 dark:hover:bg-uber-darkborder transition-colors flex items-center justify-between">
+                    <span>Option 2: Full Rebuild (From Scratch)</span>
+                    <span class="text-uber-gray500 text-sm font-normal">~2-4 hours total</span>
+                </summary>
+                <div
+                    class="p-6 border-t border-uber-gray300 dark:border-uber-darkborder bg-white dark:bg-black space-y-6">
+                    <p class="mb-4"><em>For engineers who want to reproduce the full ETL pipeline.</em></p>
+
+                    <div>
+                        <h4 class="font-bold mb-2">1. Setup Environment</h4>
+                        <div class="bg-uber-gray100 dark:bg-uber-darkcard p-4 rounded font-mono text-sm">
+                            pip install -r requirements.txt
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold mb-2">2. Ingest Data</h4>
+                        <ul class="list-disc pl-6 space-y-2 text-sm">
+                            <li>Edit <code>scripts/download_TLC_data.py</code>: Set <code>DEST_DIR</code> to your local
+                                storage (Needs ~35GB space initially, and at least ~110GB total).</li>
+                            <li>Run the script to download the raw monthly Parquet files.</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold mb-2">3. Prepare External Assets</h4>
+                        <ul class="list-disc pl-6 space-y-2 text-sm">
+                            <li>Run <code>scripts/get_weather_data.ipynb</code> to fetch hourly weather. Needs Visual
+                                Crossing API key - free tier is sufficient. The weather data cannot be uploaded here due
+                                to API licensing.</li>
+                            <li>Run <code>scripts/shapefile_processing.ipynb</code> to convert Taxi Zones to centroids.
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold mb-2">4. Execute Transformation</h4>
+                        <ul class="list-disc pl-6 space-y-2 text-sm">
+                            <li>Edit <code>scripts/process_data.py</code>: Update <code>RAW_DATA_DIR</code> and
+                                <code>OUTPUT_DIR</code>.</li>
+                            <li><em>Performance Tip:</em> Adjust <code>POLARS_MAX_THREADS</code> based on your CPU.</li>
+                            <li>Run the script. This will clean, feature engineer, and save partitioned files.</li>
+                            <li>Run <code>scripts/move_files.py</code> to flatten the directory structure for easier
+                                access.</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold mb-2">5. Aggregate & Sample</h4>
+                        <ul class="list-disc pl-6 space-y-2 text-sm">
+                            <li>Run <code>scripts/aggregate_datasets.py</code> to generate the 4 Data Marts.</li>
+                            <li>Run <code>scripts/stratified_sampling.py</code> to generate the 1% Stratified Sample.
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold mb-2">6. Audit (Optional)</h4>
+                        <ul class="list-disc pl-6 space-y-2 text-sm">
+                            <li>Run <code>scripts/tlc_universal_audit.py</code> on any folder (Raw/Processed) to
+                                generate a health report.</li>
+                            <li>Visualize the report using <code>notebooks/Data_health_audit_*.ipynb</code> (current
+                                files already have output saved to them).</li>
+                        </ul>
+                    </div>
+                </div>
+            </details>
+        </div>
+    </div>
+</section>

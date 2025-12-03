@@ -1,0 +1,139 @@
+<section id="architecture" class="mb-24 scroll-mt-32">
+    <h2 class="text-3xl font-bold mb-8 flex items-center gap-3">
+        <span class="text-uber-green">2.</span> Technical Architecture
+    </h2>
+    <div class="prose prose-lg dark:prose-invert max-w-none">
+
+        <h3 class="text-2xl font-semibold mb-4">Challenge: Big Data on Small Hardware</h3>
+        <p class="mb-6">
+            Processing <strong>1.4 Billion rows (~70GB Parquet / ~400GB CSV)</strong> on a standard laptop (16GB
+            RAM) presents immediate bottlenecks:
+        </p>
+        <ul class="list-disc pl-6 space-y-2 mb-8 text-uber-gray600 dark:text-uber-gray500">
+            <li><strong>Memory Overflow:</strong> Loading the full dataset into Pandas crashes immediately.</li>
+            <li><strong>Slow I/O:</strong> Reading/writing huge CSVs takes hours.</li>
+            <li><strong>Inefficient Compute:</strong> Single-threaded processing leaves CPU cores idle.</li>
+        </ul>
+
+        <h3 class="text-2xl font-semibold mb-4">Solution: A Streaming Lakehouse Architecture</h3>
+        <p class="mb-6">We implemented a modern, high-performance ETL pipeline using <strong>Polars</strong> <em>(still
+                in Python!)</em> and <strong>partitioning</strong>.</p>
+
+        <h4 class="text-xl font-semibold mb-4">Key Architectural Decisions:</h4>
+        <ol class="list-decimal pl-6 space-y-4 mb-8">
+            <li>
+                <strong>Polars over Pandas:</strong>
+                <ul class="list-disc pl-6 mt-2 space-y-1 text-uber-gray600 dark:text-uber-gray500">
+                    <li><strong>Lazy Evaluation:</strong> Polars builds a computational graph and only executes when
+                        needed, allowing query optimization before data is touched.</li>
+                    <li><strong>Streaming Engine:</strong> Processes data in chunks, keeping memory usage constant
+                        regardless of file size.</li>
+                    <li><strong>Rust Backend:</strong> significantly faster execution for heavy group-by and join
+                        operations.</li>
+                </ul>
+            </li>
+            <li>
+                <strong>Partitioned Parquet files:</strong>
+                <ul class="list-disc pl-6 mt-2 space-y-1 text-uber-gray600 dark:text-uber-gray500">
+                    <li>Much smaller file sizes (5-6x smaller than CSV).</li>
+                    <li>Much faster read/write due to columnar storage format, enabling selective column access,
+                        built-in chunking, and metadata indexing.</li>
+                    <li>The data is then split monthly and named descriptively, enabling efficient reads/writes of only
+                        necessary data slices ("Predicate Pushdown"), or process the whole dataset month-by-month
+                        (instead of all at once), avoiding memory overload.</li>
+                </ul>
+            </li>
+            <li>
+                <strong>Atomic Processing:</strong>
+                <ul class="list-disc pl-6 mt-2 space-y-1 text-uber-gray600 dark:text-uber-gray500">
+                    <li>The pipeline processes one file at a time (Month-by-Month).</li>
+                    <li>It cleans, engineers, and aggregates a single month, saves the result, flushes memory, and moves
+                        to the next. This guarantees the pipeline doesn't crash, even on lower-end consumer machines.
+                    </li>
+                </ul>
+            </li>
+        </ol>
+
+        <h3 class="text-2xl font-semibold mb-4">Pipeline Flowchart</h3>
+        <div
+            class="bg-white dark:bg-uber-darkcard border border-uber-gray300 dark:border-uber-darkborder rounded-lg p-8 mb-8">
+            <div class="text-center">
+                <p class="text-uber-gray500 italic mb-4">[Pipeline Flowchart Visualization - Mermaid Diagram]</p>
+                <div class="flex flex-col items-center gap-4 text-sm font-mono">
+                    <!-- Vertical Flow -->
+                    <div
+                        class="p-3 bg-uber-gray100 dark:bg-black rounded border border-uber-gray300 dark:border-uber-darkborder">
+                        Raw Data Source</div>
+                    <span class="text-uber-gray400">↓ Download Script</span>
+                    <div
+                        class="p-3 bg-uber-gray100 dark:bg-black rounded border border-uber-gray300 dark:border-uber-darkborder">
+                        Raw Parquet Files</div>
+                    <span class="text-uber-gray400">↓ Stream Scan</span>
+                    <div class="p-3 bg-uber-green text-white rounded">Atomic Processor</div>
+
+                    <!-- Branching -->
+                    <div class="flex gap-8 items-center">
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="text-uber-gray400 text-xs">Join →</span>
+                            <div
+                                class="p-2 bg-uber-gray100 dark:bg-black rounded text-xs border border-uber-gray300 dark:border-uber-darkborder">
+                                External Data<br />(Zones + Weather)</div>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="text-uber-gray400 text-xs">Filter →</span>
+                            <div
+                                class="p-2 bg-uber-gray100 dark:bg-black rounded text-xs border border-uber-gray300 dark:border-uber-darkborder">
+                                Data Hygiene<br />Engine</div>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="text-uber-gray400 text-xs">Calculate →</span>
+                            <div
+                                class="p-2 bg-uber-gray100 dark:bg-black rounded text-xs border border-uber-gray300 dark:border-uber-darkborder">
+                                Feature Engineering<br />Engine</div>
+                        </div>
+                    </div>
+
+                    <span class="text-uber-gray400">↓ Write</span>
+                    <div
+                        class="p-3 bg-uber-gray100 dark:bg-black rounded border border-uber-gray300 dark:border-uber-darkborder">
+                        Processed Dataset (70GB)</div>
+
+                    <!-- Final Split -->
+                    <div class="flex gap-8 items-center">
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="text-uber-gray400 text-xs">Stratified Sampling →</span>
+                            <div class="p-2 bg-uber-orange text-white rounded text-xs">The Flesh<br />(1% Sample)</div>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="text-uber-gray400 text-xs">Aggregation →</span>
+                            <div class="p-2 bg-uber-orange text-white rounded text-xs">The Backbone<br />(4 Data Marts)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="text-2xl font-semibold mb-4">Hardware Benchmark</h3>
+        <p class="mb-4">To validate the architecture, we benchmarked the full ETL pipeline on consumer hardware.</p>
+        <ul class="list-disc pl-6 space-y-2 mb-4 text-uber-gray600 dark:text-uber-gray500">
+            <li><strong>Test Machine:</strong> Windows 11, Intel i5-12600K, 32GB RAM, NVMe SSD.</li>
+            <li><strong>Dataset:</strong> 80 files, corresponding to 80 months (Feb 2019 – Sep 2025), initially ~33GB,
+                after filtering, then feature engineering, goes to ~70GB Parquet.</li>
+            <li><strong>Performance:</strong>
+                <ul class="list-circle pl-6 mt-2">
+                    <li><strong>Downloading (80 files):</strong> ~10-20 minutes (network dependent)</li>
+                    <li><strong>Filtering + Feature Engineering (Full Pass):</strong> ~12 minutes.</li>
+                    <li><strong>Aggregation (4 Marts):</strong> ~3 minutes.</li>
+                    <li><strong>Throughput:</strong> Processed ~1.9 Million rows/second.</li>
+                </ul>
+            </li>
+            <li><strong>Optimization Note:</strong> By using Polars Streaming and strict type casting
+                (<code>Float32</code>), memory usage peaked but does not overflow, CPU BBQ'd but did not crash,
+                utilizing all available resources efficiently.</li>
+            <li><strong>Note:</strong> Also tested on 16GB laptop, while taking substantially longer (due to less RAM,
+                thus handling less at once), it was still able to run the full pipeline successfully. Yay, a run of the
+                mill laptop just handled 1.4 billion rows of data 🏋🏻‍♀️!</li>
+        </ul>
+    </div>
+</section>

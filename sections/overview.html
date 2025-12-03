@@ -1,0 +1,40 @@
+<section id="overview" class="mb-24 scroll-mt-32">
+    <h1 class="text-4xl md:text-6xl font-bold mb-6 tracking-tight">The Power of Data Preparation through Data
+        Storytelling</h1>
+    <p class="text-xl md:text-2xl text-uber-gray600 dark:text-uber-gray500 leading-relaxed mb-8">
+        This project demonstrates how rigorous data engineering transforms raw, noisy telemetry into actionable
+        economic insights. By applying a systematic cleaning and feature engineering pipeline to over <strong
+            class="text-uber-green">1.4 billion</strong> ride-hail records, we reveal trends in pricing, driver
+        pay, and urban mobility that are invisible in the raw data.
+    </p>
+
+    <h3 class="text-2xl font-semibold mb-4">Objective</h3>
+    <p class="mb-6">
+        To process the massive New York City TLC dataset (2019–2025), showing that careful data preparation and
+        thoughtful architecture (Polars, Parquet, Partitioning) can uncover insights hidden insights in big data that
+        the raw files alone cannot provide.
+    </p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12 mb-12">
+        <div class="bg-uber-gray100 dark:bg-uber-darkcard p-8 rounded-lg">
+            <h3 class="text-lg font-medium mb-2 text-uber-gray600 dark:text-uber-gray500">Dataset</h3>
+            <p class="text-3xl font-bold">NYC TLC (Uber)</p>
+            <ul class="mt-4 space-y-2 text-sm text-uber-gray600 dark:text-uber-gray500">
+                <li><strong>Source:</strong> <a href="https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page"
+                        class="underline hover:text-uber-black dark:hover:text-white">NYC TLC Official
+                        Records</a></li>
+                <li><strong>Scope:</strong> High-Volume For-Hire Vehicle (HVFHS) Trip Records</li>
+                <li><strong>Provider:</strong> Uber (License HV0003) (filtered exclusively)</li>
+                <li><strong>Timeline:</strong> February 2019 to September 2025</li>
+                <li><strong>Volume:</strong> ~1 Billion individual trips (after filtering)</li>
+                <li><strong>Size:</strong> ~70GB (Parquet), or ~400GB+ (CSV estimate)</li>
+            </ul>
+        </div>
+        <div class="bg-uber-gray100 dark:bg-uber-darkcard p-8 rounded-lg">
+            <h3 class="text-lg font-medium mb-2 text-uber-gray600 dark:text-uber-gray500">Volume</h3>
+            <p class="text-3xl font-bold">~1.02 Billion Trips</p>
+            <p class="text-sm text-uber-gray600 dark:text-uber-gray500 mt-1">Processed from 1.4B Raw Records</p>
+            <p class="text-sm text-uber-gray600 dark:text-uber-gray500 mt-1">Timeline: Feb 2019 – Sep 2025</p>
+        </div>
+    </div>
+</section>
