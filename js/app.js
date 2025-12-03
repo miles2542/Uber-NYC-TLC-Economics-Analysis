@@ -103,8 +103,8 @@ function initStickyHeader() {
             stateRaw?.classList.replace('dark:text-white', 'text-uber-gray500');
             stateProcessed?.classList.replace('text-uber-gray500', 'text-uber-black');
             stateProcessed?.classList.add('dark:text-white');
-            if (rowsValue) rowsValue.textContent = '1.02B';
-            if (sizeValue) sizeValue.textContent = '250MB';
+            if (rowsValue) rowsValue.textContent = '983M';
+            if (sizeValue) sizeValue.textContent = '1.1GB';
         } else {
             toggleCircle?.classList.remove('translate-x-6');
             stateRaw?.classList.replace('text-uber-gray500', 'text-uber-black');
