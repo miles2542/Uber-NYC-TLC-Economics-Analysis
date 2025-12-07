@@ -34,7 +34,7 @@ We filtered specifically for **Uber** (`hvfhs_license_num == 'HV0003'`) to ensur
 ### **2. Ingestion Strategy**
 Downloading 80 files of monthly high-density Parquet files requires a robust automated script, not manual clicks on website.
 
-*   **Script:** `download_TLC_data.py` *(#STUB - link to github file to be added here)*
+*   **Script:** `download_TLC_data.py`
 *   **Method:** Iterative HTTP requests to the CloudFront repository.
 *   **Reliability:** Implemented exponential backoff (retries with increasing delays) to handle server timeouts and connection resets.
 *   **Storage:** Data is saved raw to `HVFHV subsets 2019-2025/`, preserving the original monthly partitioning (which will take 33GB for 80 months).
@@ -147,7 +147,6 @@ We built a custom auditing tool (`universal_audit.py`) to scan the raw parquet f
     *   **"Teleportation":** Trips covering massive distances in seconds.
 *   **Data Completeness:** High null rates in specific fee columns (e.g., `airport_fee` ~29% nulls), requiring strategic imputation (drop if important column, fill with 0 for some columns, etc.).
 
-*(#STUB - Insert Screenshot: Paradox Violations Chart)*
 
 #### **2. Statistical Thresholding (The Distribution Atlas)**
 To determine valid ranges for filtering, we did not guess. We computed the **Distribution Atlas**: a monthly breakdown of every numerical feature's vital statistics (Min, Mean, Median, P99, P99.9, Max).
@@ -157,8 +156,6 @@ To determine valid ranges for filtering, we did not guess. We computed the **Dis
 2.  **Upper Bound:** We targeted the **99.9th Percentile** combined with domain knowledge.
     *   *Observation:* The Max values were often absurd (e.g., a $5,000 fare or 10,000 miles).
     *   *Action:* We set cutoffs slightly above P99.9 but significantly below Max to remove system errors while preserving legitimate "Whale" trips.
-
-*(#STUB - Insert Screenshot: Distribution Table Example)*
 
 
 #### **3. The Filter Rules**
@@ -464,13 +461,94 @@ A 70GB dataset is too large for rapid exploration and visualization. We solved t
 ---
 
 # **6. Impact Showcase: Before vs. After**
-*A visual demonstration of why data preparation matters.*
 
-*(Placeholder: Insert Side-by-Side visualizations here. E.g., "Raw Tip Distribution" vs "Generosity Heatmap", or "Raw Speed Histogram" vs "Tortuosity Analysis".)*
+Data preparation is not just "cleaning"—it is the act of refining raw noise into a signal that can be trusted for decision-making. The following visualizations demonstrate the tangible impact of our pipeline.
+
+### **1. Volume Filtration: The "Noise Ratio"**
+![alt text](assets/plots/raw_vs_processed_trip_volume.png)
+
+*   **Observation:** Raw data suggests ~240M annual Saturday trips. After filtering for Uber-only, removing duplicates, and applying physical constraints, the valid volume is ~165M.
+*   **Impact:** A **~30-40% reduction** in row count. Using raw data would have massively inflated market size estimates and skewed demand forecasting models.
+
+### **2. Revenue Reality Check**
+![alt text](assets/plots/raw_vs_processed_yearly_revenue.png)
+
+*   **Observation:** In 2024, raw records indicate a total fare revenue of **$7.5 Billion**. The validated Uber revenue is **$4.2 Billion**.
+*   **Impact:** The gap represents competitor revenue (Lyft/Via) and "fat-finger" data entry errors (e.g., million-dollar fares). Filtering protects financial models from multi-billion dollar overestimation errors.
+
+### **3. The Timeline Signal**
+![alt text](assets/plots/signal_vs_noise_daily_trip_volume.png)
+
+*   **Observation:** The shape of the curve remains identical (validating our sampling strategy), but the amplitude shifts.
+*   **Impact:** The 7-day rolling average reveals that while noise is high volume, it is *consistent*. This confirms that our filtering logic did not accidentally purge specific time periods (e.g., COVID or holidays) disproportionately.
+
+### **4. Unlockable Insights (Processed Data Only)**
+*Because raw data lacks context (Weather, Economics, Routing), the following insights were impossible to generate before feature engineering. Note that these are **just 2 examples of the many insights and business questions** we have been able to answer through the processing and analysis process.*
+
+#### **A. The Era Matrix: Efficiency vs. Subsidies**
+![alt text](assets/plots/era_matrix.png)
+
+*   **The Insight:** High driver revenue share does not equal high wages.
+*   **The Evidence:** In 2019 (Blue Cluster), drivers kept **~100%** of the fare (subsidized) but earned only **$45/hr**. In 2025 (Green Cluster), drivers keep only **~80%** but earn **$60/hr** due to higher system efficiency and utilization.
+*   **Value:** Disproves the assumption that lower commission always benefits the driver.
+
+#### **B. Strategic Surge Windows**
+![alt text](assets/plots/fig_2_2_surge_pricing_temporal_dynamics.png)
+
+*   **The Insight:** Demand volume does not perfectly correlate with price efficiency.
+*   **The Evidence:**
+    *   **Late Night (2-5 AM):** Volume is low, but Price/Km spikes (Scarcity Surge).
+    *   **Evening Rush (5-8 PM):** Volume is maxed out, but Price/Km is moderate.
+*   **Value:** Identifies specific "Arbitrage Windows" for drivers where effort (driving) yields the highest marginal return per kilometer.
+
 
 ---
 
-# **7. Reproduction & Usage**
+# **7. The Modeling Proof: Predictive Power**
+
+To mathematically prove the value of our data preparation, we ran a controlled experiment: **Predicting Base Fare** using a gradient boosting model (LightGBM).
+
+### **The Constraint (No Leakage)**
+We enforced a strict "Pre-Trip" rule. The model can **only** see information available at the moment a user clicks "Request Ride."
+*   **Excluded:** Duration, Driven Distance, Tips, Tolls, Surcharges (unknown before trip end).
+*   **Included:** Location, Time, Weather, and our **Engineered Estimates**.
+
+### **Model A: The Raw Baseline**
+*   **Input:** Only the raw, e.g. `PULocationID`, `DOLocationID`, and `timestamp`.
+*   **Performance:**
+    *   **R² Score:** `0.05` (Explains only 5% of variance).
+    *   **Error (MAE):** `$12.61` per trip.
+*   **Verdict:** **Random Guessing.** Without distance or geospatial context, the model cannot distinguish a $10 local ride from a $100 airport run.
+
+### **Model B: The Processed Challenger**
+*   **Input:** Our engineered feature set (such as `straight_line_dist_km`, `borough_flow`, `bearing`, `weather_state`).
+*   **Performance:**
+    *   **R² Score:** `0.73` (Explains 73% of variance).
+    *   **Error (MAE):** `$5.78` per trip.
+*   **Verdict:** **Precision.** By reconstructing the physical distance (`straight_line_dist_km`) and traffic context (`borough_flow`), we reduced the prediction error by **54%**.
+
+### **Visual Proof**
+
+#### **1. The Accuracy Gap**
+![alt text](assets/plots/modeling_raw_vs_processed_mae_rmse.png)
+
+* **Impact:** We **reduced the errors** in both MAE and RMSE to **under half of the baseline model** operating on the raw data only.
+
+#### **2. Prediction Fidelity**
+![alt text](assets/plots/modeling_raw_vs_processed_actual_vs_predicted_r2.png)
+
+*   **Left (Raw):** A flat cloud. The model guesses the mean ($20) for almost every trip, failing completely on high-value rides.
+*   **Right (Processed):** A strong diagonal correlation. The model successfully captures the price dynamics of both short and long trips.
+*   **Impact:** A 14x improvement in R² score confirms that "Raw Data" is insufficient for economic modeling.
+
+#### **3. The Winning Signals**
+![alt text](assets/plots/modeling_raw_vs_processed_engineered_features_importance.png)
+
+*   **Insight:** The top predictor is **`straight_line_dist_km`**, a feature that *did not exist* in the raw data. It was created by joining Shapefile centroids. This proves that external enrichment is the single biggest driver of model performance.
+
+---
+
+# **8. Reproduction & Usage**
 
 We provide two paths to use this project: **Fast Track** (Analysis only) and **Full Rebuild** (Cleaning and Engineering).
 
@@ -514,7 +592,7 @@ pip install -r requirements.txt
 
 ---
 
-# **8. Legal & Constraints**
+# **9. Legal & Constraints**
 
 ### **Known Limitations**
 *   **Driver Anonymity:** The dataset does not contain unique Driver IDs or Vehicle IDs. We cannot track individual driver shifts, fatigue, or long-term earnings. All analysis is trip-based, not driver-based.
