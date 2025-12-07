@@ -1,3 +1,15 @@
+> [!IMPORTANT]
+> ### ⚠️ RECOMMENDED VIEWING EXPERIENCE
+> This README is a static summary, and is missing some things due to GitHub README markdown's restrictions . For the **Full Data Story**, and **Interactive Charts**, please visit the live site:
+>
+> # 👉 [PROJECT README - Get the best & complete experience here](https://miles2542.github.io/Uber-NYC-TLC-Economics-Analysis/) 👈
+>
+> ---
+> **Other Resources:**
+> [📄 Read Analysis Report PDF](https://github.com/miles2542/Uber-NYC-TLC-Economics-Analysis/blob/main/Insights_and_technical_analysis_report.pdf) (also includes members' contributions) &nbsp;&nbsp;|&nbsp;&nbsp; [💻 Browse GitHub Repository Files](https://github.com/miles2542/Uber-NYC-TLC-Economics-Analysis)
+
+
+
 # **Project Overview**
 
 ### **Topic: The Power of Data Preparation through Data Storytelling**
