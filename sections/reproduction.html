@@ -1,6 +1,6 @@
 <section id="reproduction" class="mb-24 scroll-mt-32">
     <h2 class="text-3xl font-bold mb-8 flex items-center gap-3">
-        <span class="text-uber-green">6.</span> Reproduction & Usage
+        <span class="text-uber-green">8.</span> Reproduction & Usage
     </h2>
     <div class="prose prose-lg dark:prose-invert max-w-none">
         <p class="mb-8">
@@ -15,7 +15,14 @@
                 class="bg-uber-gray100 dark:bg-uber-darkcard rounded-lg border border-uber-gray300 dark:border-uber-darkborder overflow-hidden">
                 <summary
                     class="p-6 cursor-pointer font-bold text-lg hover:bg-uber-gray200 dark:hover:bg-uber-darkborder transition-colors flex items-center justify-between">
-                    <span>Option 1: Fast Track (Recommended)</span>
+                    <span class="flex items-center gap-3">
+                        <!-- Lightning Icon SVG -->
+                        <svg class="w-6 h-6 text-uber-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Option 1: Fast Track (Recommended)
+                    </span>
                     <span class="text-uber-gray500 text-sm font-normal">~5 minutes setup</span>
                 </summary>
                 <div class="p-6 border-t border-uber-gray300 dark:border-uber-darkborder bg-white dark:bg-black">
@@ -24,7 +31,8 @@
                     <ol class="list-decimal pl-6 space-y-3 mb-6">
                         <li>Navigate to the <strong>Releases</strong> section of this repository.</li>
                         <li>Download the <strong><code>TLC_NYC_Processed_Sample.zip</code></strong> and
-                            <strong><code>TLC_NYC_Aggregates.zip</code></strong> (Total ~1.3GB).</li>
+                            <strong><code>TLC_NYC_Aggregates.zip</code></strong> (Total ~1.3GB).
+                        </li>
                         <li>Unzip them into the <code>data/</code> folder.</li>
                         <li>Open any notebook in <code>analysis_notebooks/</code> and run. No <em>(too)</em> heavy
                             computation required.</li>
@@ -45,8 +53,18 @@
             <details
                 class="bg-uber-gray100 dark:bg-uber-darkcard rounded-lg border border-uber-gray300 dark:border-uber-darkborder overflow-hidden">
                 <summary
-                    class="p-6 cursor-pointer font-bold text-lg hover:bg-uber-gray200 dark:hover:bg-uber-darkborder transition-colors flex items-center justify-between">
-                    <span>Option 2: Full Rebuild (From Scratch)</span>
+                    class="p-6 cursor-pointer font-bold text-lg hover:bg-uber-gray200 dark:border:hover:bg-uber-darkborder transition-colors flex items-center justify-between">
+                    <span class="flex items-center gap-3">
+                        <!-- Cog/Settings Icon SVG -->
+                        <svg class="w-6 h-6 text-uber-gray600 dark:text-uber-gray500" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Option 2: Full Rebuild (From Scratch)
+                    </span>
                     <span class="text-uber-gray500 text-sm font-normal">~2-4 hours total</span>
                 </summary>
                 <div
@@ -84,7 +102,8 @@
                         <h4 class="font-bold mb-2">4. Execute Transformation</h4>
                         <ul class="list-disc pl-6 space-y-2 text-sm">
                             <li>Edit <code>scripts/process_data.py</code>: Update <code>RAW_DATA_DIR</code> and
-                                <code>OUTPUT_DIR</code>.</li>
+                                <code>OUTPUT_DIR</code>.
+                            </li>
                             <li><em>Performance Tip:</em> Adjust <code>POLARS_MAX_THREADS</code> based on your CPU.</li>
                             <li>Run the script. This will clean, feature engineer, and save partitioned files.</li>
                             <li>Run <code>scripts/move_files.py</code> to flatten the directory structure for easier

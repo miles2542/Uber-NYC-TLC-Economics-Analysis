@@ -23,7 +23,8 @@
                     <li><strong>Why:</strong> Raw data only gives Zone IDs (e.g., <code>161</code>). By converting these
                         to coordinates, we can calculate <strong>Straight-Line Distance</strong> and
                         <strong>Bearing</strong>, enabling us to detect detours (<code>Driven Dist</code> vs
-                        <code>Straight Dist</code>).</li>
+                        <code>Straight Dist</code>).
+                    </li>
                 </ul>
             </li>
             <li>
@@ -35,7 +36,8 @@
                     <li><strong>Granularity:</strong> Hourly resolution for "New York, NY".</li>
                     <li><strong>Why:</strong> Demand is weather-dependent. We joined weather data on
                         <code>pickup_hour</code> to analyze how Rain, Snow, and Extreme Cold impact pricing and tipping
-                        behavior.</li>
+                        behavior.
+                    </li>
                 </ul>
             </li>
         </ul>
@@ -63,7 +65,8 @@
             </li>
             <li><strong>Data Completeness:</strong> High null rates in specific fee columns (e.g.,
                 <code>airport_fee</code> ~29% nulls), requiring strategic imputation (drop if important column, fill
-                with 0 for some columns, etc.).</li>
+                with 0 for some columns, etc.).
+            </li>
         </ul>
 
         <h4 class="text-xl font-semibold mb-3">2. Statistical Thresholding (The Distribution Atlas)</h4>
@@ -126,7 +129,8 @@
                         <td class="p-4">Location</td>
                         <td class="p-4 font-mono text-uber-red">ID ∈ [1, 263]</td>
                         <td class="p-4 text-uber-gray600 dark:text-uber-gray500">Removes <code>264</code> (Unknown) and
-                            <code>265</code> (Void) to ensure map integrity.</td>
+                            <code>265</code> (Void) to ensure map integrity.
+                        </td>
                     </tr>
                     <tr>
                         <td class="p-4 font-bold" rowspan="3">Economics</td>
@@ -188,6 +192,21 @@
                     </tr>
                 </tbody>
             </table>
+        </div>
+
+        <!-- Interactive Data Distribution Table -->
+        <div class="mt-12 mb-8">
+            <h4 class="text-xl font-semibold mb-4">Interactive Distribution Atlas: Raw vs. Processed</h4>
+            <p class="text-sm text-uber-gray600 dark:text-uber-gray500 mb-4">
+                Explore the monthly statistical distribution of any feature before and after filtering. Use the dropdown
+                to select a feature and the scrubber to switch between raw (outliers) and clean (refined) data states.
+            </p>
+            <div class="bg-white dark:bg-uber-darkcard border-2 border-uber-gray300 dark:border-uber-darkborder rounded-lg overflow-hidden w-full md:w-[140%] md:-ml-[20%]"
+                style="height: 800px;">
+                <iframe src="sections/data_distribution_table.html" class="w-full h-full" style="border: none;"
+                    loading="lazy">
+                </iframe>
+            </div>
         </div>
     </div>
 </section>

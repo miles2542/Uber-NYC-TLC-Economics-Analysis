@@ -1,0 +1,124 @@
+<section id="modeling" class="mb-24 scroll-mt-32">
+    <h2 class="text-3xl font-bold mb-8 flex items-center gap-3">
+        <span class="text-uber-green">7.</span> The Modeling Proof: Predictive Power
+    </h2>
+    <div class="prose prose-lg dark:prose-invert max-w-none">
+        <p class="mb-8">
+            To mathematically prove the value of our data preparation, we ran a controlled experiment:
+            <strong>Predicting Base Fare</strong> using a gradient boosting model (LightGBM).
+        </p>
+
+        <!-- The Constraint -->
+        <div class="mb-10">
+            <h3 class="text-2xl font-semibold mb-4">The Constraint (No Leakage)</h3>
+            <p class="mb-4">
+                We enforced a strict "Pre-Trip" rule. The model can <strong>only</strong> see information available at
+                the moment a user clicks "Request Ride."
+            </p>
+            <ul class="list-disc pl-6 space-y-2 mb-6 text-uber-gray600 dark:text-uber-gray500">
+                <li><strong>Excluded:</strong> Duration, Driven Distance, Tips, Tolls, Surcharges (unknown before trip
+                    end).</li>
+                <li><strong>Included:</strong> Location, Time, Weather, and our <strong>Engineered Estimates</strong>.
+                </li>
+            </ul>
+        </div>
+
+        <!-- Model Comparison -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+            <!-- Model A: Raw Baseline -->
+            <div class="bg-uber-gray100 dark:bg-uber-darkcard p-6 rounded-lg border-l-4 border-uber-red">
+                <h4 class="text-xl font-bold mb-4 text-uber-red">Model A: The Raw Baseline</h4>
+                <p class="mb-4 text-sm"><strong>Input:</strong> Only the raw, e.g. <code>PULocationID</code>,
+                    <code>DOLocationID</code>, and <code>timestamp</code>.
+                </p>
+                <p class="mb-2 text-sm font-semibold">Performance:</p>
+                <ul class="list-disc pl-6 space-y-2 text-sm">
+                    <li><strong>R² Score:</strong> <code class="text-uber-red font-mono">0.05</code> (Explains only 5%
+                        of variance).</li>
+                    <li><strong>Error (MAE):</strong> <code class="text-uber-red font-mono">$12.61</code> per trip.</li>
+                </ul>
+                <p class="mt-4 text-sm"><strong>Verdict:</strong> <span class="text-uber-red font-bold">Random
+                        Guessing.</span> Without distance or geospatial context, the model cannot distinguish a $10
+                    local ride from a $100 airport run.</p>
+            </div>
+
+            <!-- Model B: Processed Challenger -->
+            <div class="bg-uber-gray100 dark:bg-uber-darkcard p-6 rounded-lg border-l-4 border-uber-green">
+                <h4 class="text-xl font-bold mb-4 text-uber-green">Model B: The Processed Challenger</h4>
+                <p class="mb-4 text-sm"><strong>Input:</strong> Our engineered feature set (such as
+                    <code>straight_line_dist_km</code>, <code>borough_flow</code>, <code>bearing</code>,
+                    <code>weather_state</code>).
+                </p>
+                <p class="mb-2 text-sm font-semibold">Performance:</p>
+                <ul class="list-disc pl-6 space-y-2 text-sm">
+                    <li><strong>R² Score:</strong> <code class="text-uber-green font-mono">0.73</code> (Explains 73% of
+                        variance).</li>
+                    <li><strong>Error (MAE):</strong> <code class="text-uber-green font-mono">$5.78</code> per trip.
+                    </li>
+                </ul>
+                <p class="mt-4 text-sm"><strong>Verdict:</strong> <span
+                        class="text-uber-green font-bold">Precision.</span> By reconstructing the physical distance
+                    (<code>straight_line_dist_km</code>) and traffic context (<code>borough_flow</code>), we reduced the
+                    prediction error by <strong>54%</strong>.</p>
+            </div>
+        </div>
+
+        <!-- Visual Proof -->
+        <div class="mb-12">
+            <h3 class="text-2xl font-semibold mb-6">Visual Proof</h3>
+
+            <!-- 1. The Accuracy Gap -->
+            <div class="mb-10">
+                <h4 class="text-xl font-semibold mb-3">1. The Accuracy Gap</h4>
+                <!-- UPDATED LAYOUT CLASS -->
+                <div class="bg-white dark:bg-uber-darkcard border border-uber-gray300 dark:border-uber-darkborder rounded-lg overflow-hidden mb-4 w-full md:w-[140%] md:-ml-[20%]"
+                    style="height: 700px;">
+                    <iframe src="modeling_raw_vs_processed_mae_rmse.html" class="w-full h-full" style="border: none;"
+                        loading="lazy">
+                    </iframe>
+                </div>
+                <p class="text-sm text-uber-gray600 dark:text-uber-gray500">
+                    <strong>Impact:</strong> We <strong>reduced the errors</strong> in both MAE and RMSE to
+                    <strong>under half of the baseline model</strong> operating on the raw data only.
+                </p>
+            </div>
+
+            <!-- 2. Prediction Fidelity -->
+            <div class="mb-10">
+                <h4 class="text-xl font-semibold mb-3">2. Predicted vs. Actual</h4>
+                <!-- EXTRA WIDE LAYOUT for side-by-side comparison -->
+                <div class="bg-white dark:bg-uber-darkcard border border-uber-gray300 dark:border-uber-darkborder rounded-lg overflow-hidden mb-4 w-full md:w-[180%] md:-ml-[30%]"
+                    style="height: 700px;">
+                    <iframe src="modeling_raw_vs_processed_actual_vs_predicted_r2.html" class="w-full h-full"
+                        style="border: none;" loading="lazy">
+                    </iframe>
+                </div>
+                <ul class="list-disc pl-6 space-y-2 text-sm text-uber-gray600 dark:text-uber-gray500">
+                    <li><strong>Left (Raw):</strong> A flat cloud. The model guesses the mean ($20) for almost every
+                        trip, failing completely on high-value rides.</li>
+                    <li><strong>Right (Processed):</strong> A strong diagonal correlation. The model successfully
+                        captures the price dynamics of both short and long trips.</li>
+                    <li><strong>Impact:</strong> A 14x improvement in R² score confirms that "Raw Data" is insufficient
+                        for economic modeling.</li>
+                </ul>
+            </div>
+
+            <!-- 3. The Winning Signals -->
+            <div class="mb-10">
+                <h4 class="text-xl font-semibold mb-3">3. The Winning Signals</h4>
+                <!-- UPDATED LAYOUT CLASS -->
+                <div class="bg-white dark:bg-uber-darkcard border border-uber-gray300 dark:border-uber-darkborder rounded-lg overflow-hidden mb-4 w-full md:w-[140%] md:-ml-[20%]"
+                    style="height: 700px;">
+                    <iframe src="modeling_raw_vs_processed_engineered_features_importance.html" class="w-full h-full"
+                        style="border: none;" loading="lazy">
+                    </iframe>
+                </div>
+                <p class="text-sm text-uber-gray600 dark:text-uber-gray500">
+                    <strong>Insight:</strong> The top predictor is <strong><code>straight_line_dist_km</code></strong>,
+                    a feature that <em>did not exist</em> in the raw data. It was created by joining Shapefile
+                    centroids. This proves that external enrichment is the single biggest driver of model performance.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>

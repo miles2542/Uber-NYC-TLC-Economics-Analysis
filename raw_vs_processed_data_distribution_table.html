@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uber Data Atlas | Dark Executive View</title>
+
+    <!-- FONTS: Inter (Standard for modern UI) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- DATA SOURCE -->
+    <script src="data_payload.js"></script>
+
+    <style>
+        /* =========================================
+           1. UBER DESIGN SYSTEM (DARK TOKENS)
+           ========================================= */
+        :root {
+            /* Palette Inversion */
+            --uber-black: #000000;
+            --uber-white: #FFFFFF;
+            --ui-background: #1E1E1E;
+            --ui-surface: #252526;
+            --ui-text-primary: #E0E0E0;
+            --ui-text-secondary: #AAAAAA;
+            --ui-border: #444444;
+            --ui-border-dark: #666666;
+
+            /* Data Colors (High Saturation for Pop) */
+            --data-green: #47B275;
+            /* Stable/Clean */
+            --data-red: #F25138;
+            /* Error/Raw */
+            --data-blue: #5DA5DA;
+            /* Neutral Distribution */
+
+            /* Grays for Fills (Deeper than background) */
+            --gray-fill-subtle: #2C2C2C;
+
+            /* Dimensions */
+            --sidebar-width: 180px;
+            --track-height: 180px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background: var(--ui-background);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            color: var(--ui-text-primary);
+        }
+
+        /* =========================================
+           2. SIDEBAR (CONTROLS)
+           ========================================= */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--ui-surface);
+            border-right: 1px solid var(--ui-border);
+            display: flex;
+            flex-direction: column;
+            padding: 24px 16px;
+            z-index: 20;
+        }
+
+        .brand {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: var(--ui-text-primary);
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* DROPDOWN STYLING */
+        .control-group {
+            margin-bottom: 30px;
+        }
+
+        .label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-weight: 600;
+            color: var(--ui-text-secondary);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            border: 1px solid var(--ui-border);
+            border-radius: 4px;
+            background: var(--ui-surface);
+            color: var(--ui-text-primary);
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        /* CUSTOM VERTICAL SLIDER ASSEMBLY */
+        .scrubber-assembly {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .scrubber-track-wrapper {
+            position: relative;
+            height: var(--track-height);
+            width: 20px;
+            margin: 10px 0;
+        }
+
+        #stateSlider {
+            opacity: 0;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            cursor: ns-resize;
+            z-index: 10;
+        }
+
+        .custom-track {
+            position: absolute;
+            width: 2px;
+            height: 100%;
+            background: var(--ui-border);
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Custom Handle (The Uber Car) */
+        #custom-handle {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            left: 50%;
+            top: 0;
+            transform: translate(-50%, -50%);
+            transition: background-color 0.2s, box-shadow 0.2s;
+            pointer-events: none;
+            border-radius: 4px;
+            background: var(--data-green);
+            box-shadow: 0 0 10px rgba(71, 178, 117, 0.5);
+        }
+
+        /* Uber Car SVG */
+        #custom-handle::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 12px;
+            height: 10px;
+            background: var(--uber-black);
+            transform: translate(-50%, -50%);
+            border-radius: 2px;
+        }
+
+        /* Scrubber Labels (Q3 Fix: Aligned to Track Ends) */
+        .scrubber-labels-vertical {
+            height: var(--track-height);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 11px;
+            font-weight: 600;
+            text-align: right;
+            line-height: 1.2;
+            padding: 5px 0;
+        }
+
+        .state-label {
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Dynamic Active States */
+        .mode-raw #custom-handle {
+            background: var(--data-red);
+            box-shadow: 0 0 10px rgba(242, 81, 56, 0.5);
+        }
+
+        .mode-raw .state-raw {
+            color: var(--data-red);
+        }
+
+        .mode-proc #custom-handle {
+            background: var(--data-green);
+            box-shadow: 0 0 10px rgba(71, 178, 117, 0.5);
+        }
+
+        .mode-proc .state-proc {
+            color: var(--data-green);
+        }
+
+
+        /* Footer */
+        .footer {
+            margin-top: auto;
+            font-size: 10px;
+            color: var(--ui-text-secondary);
+            line-height: 1.4;
+            border-top: 1px solid var(--gray-fill-subtle);
+            padding-top: 16px;
+        }
+
+        /* =========================================
+           3. MAIN VIEW (DATA TABLE)
+           ========================================= */
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--ui-surface);
+            position: relative;
+        }
+
+        /* HEADER INFO */
+        .info-bar {
+            padding: 20px 32px;
+            border-bottom: 1px solid var(--ui-border);
+            background: var(--ui-surface);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .metric-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--ui-text-primary);
+            margin: 0;
+        }
+
+        .feature-name-highlight {
+            color: var(--data-green);
+        }
+
+        .mode-raw .feature-name-highlight {
+            color: var(--data-red);
+        }
+
+
+        .metric-subtitle {
+            font-size: 13px;
+            color: var(--ui-text-secondary);
+            margin-top: 4px;
+        }
+
+        .status-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Status Badge Colors */
+        .mode-raw .status-badge {
+            background: rgba(242, 81, 56, 0.15);
+            color: var(--data-red);
+        }
+
+        .mode-proc .status-badge {
+            background: rgba(71, 178, 117, 0.15);
+            color: var(--data-green);
+        }
+
+        /* TABLE SCROLL AREA */
+        .table-wrapper {
+            flex-grow: 1;
+            overflow: auto;
+            position: relative;
+        }
+
+        table {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+            font-size: 13px;
+        }
+
+        /* TABLE HEADERS */
+        th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--gray-fill-subtle);
+            color: var(--ui-text-secondary);
+            font-weight: 700;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 10px 12px;
+            text-align: right;
+            border-bottom: 2px solid var(--ui-border-dark);
+        }
+
+        /* Sticky First Column (Date) */
+        th:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 20;
+            text-align: left;
+            background: var(--gray-fill-subtle);
+            border-right: 2px solid var(--ui-border-dark);
+        }
+
+        /* TABLE CELLS */
+        td {
+            padding: 6px 12px;
+            text-align: right;
+            white-space: nowrap;
+            border-bottom: 1px solid var(--ui-border);
+            color: var(--ui-text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Sticky First Column (Date) */
+        td:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 5;
+            text-align: left;
+            background: var(--ui-surface);
+            font-weight: 500;
+            font-size: 12px;
+            border-right: 2px solid var(--ui-border-dark);
+        }
+
+        tr:hover td {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+        }
+
+        tr:hover td:first-child {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Bar Column specific styling */
+        .val-mean,
+        .val-max {
+            border-left: 1px solid var(--ui-border);
+        }
+
+        /* =========================================
+           4. VISUALIZATION HELPERS (Dynamic)
+           ========================================= */
+
+        td {
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        /* Bar text must be white for contrast */
+        .bar-cell {
+            color: var(--uber-white) !important;
+            font-weight: 700 !important;
+        }
+
+        /* Fixed Annotations */
+        #rawAnnotation {
+            position: sticky;
+            top: 12px;
+            left: 10px;
+            font-weight: 700;
+            font-size: 11px;
+            z-index: 50;
+            color: var(--data-red);
+            background: var(--gray-fill-subtle);
+            padding: 2px 5px;
+            border-radius: 2px;
+        }
+
+        #filteredAnnotation {
+            position: sticky;
+            bottom: 12px;
+            left: 10px;
+            font-weight: 700;
+            font-size: 11px;
+            z-index: 50;
+            color: var(--data-green);
+            background: var(--gray-fill-subtle);
+            padding: 2px 5px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="brand">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="2" width="9" height="9" fill="var(--ui-text-primary)" />
+                <rect x="13" y="2" width="9" height="9" fill="var(--ui-text-primary)" />
+                <rect x="2" y="13" width="9" height="9" fill="var(--ui-text-primary)" />
+                <rect x="13" y="13" width="9" height="9" />
+            </svg>
+            Data Atlas
+        </div>
+
+        <div class="control-group">
+            <p class="label">Select Feature</p>
+            <select id="featureSelect">
+                <!-- Javascript will populate this -->
+            </select>
+        </div>
+
+        <div class="control-group">
+            <p class="label">Scrubber Control</p>
+            <p style="font-size: 11px; color: var(--ui-text-secondary); margin-bottom: 20px;">
+                Slide the car down to clean the data.
+            </p>
+        </div>
+
+        <div class="scrubber-assembly">
+            <div class="scrubber-labels-vertical" style="text-align: right;">
+                <span class="state-label state-raw">RAW (OUTLIERS)</span>
+                <span class="state-label state-proc">CLEAN (REFINED)</span>
+            </div>
+
+            <div class="scrubber-track-wrapper">
+                <!-- Hidden input handles value and interaction -->
+                <input type="range" id="stateSlider" min="0" max="1" step="0.01" value="1" orient="vertical">
+                <div class="custom-track"></div>
+                <!-- Custom Handle (Car) is positioned via JS -->
+                <div id="custom-handle"></div>
+            </div>
+        </div>
+
+        <div class="footer">
+            NYC TLC Trip Records (2019-2025)<br>
+            <span style="color: var(--data-green); font-weight: 500;">Analysis by Group 2</span>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        <div class="info-bar">
+            <div>
+                <h1 class="metric-title" id="displayTitle">STATISTICS FOR: <span class="feature-name-highlight">BASE
+                        PASSENGER FARE</span></h1>
+                <div class="metric-subtitle">Monthly Statistical Distribution</div>
+            </div>
+            <div id="statusBadge" class="status-badge">RAW DATA</div>
+        </div>
+
+        <div class="table-wrapper" id="tableWrapper">
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th>Audit Month</th>
+                        <th>Total Rows</th>
+                        <th>MIN</th>
+                        <th>P01</th>
+                        <th>P50</th>
+                        <th class="val-mean" style="min-width: 80px">MEAN</th>
+                        <th style="border-left: 1px solid var(--ui-border)">STD</th>
+                        <th>P99</th>
+                        <th>P99.9</th>
+                        <th class="val-max" style="min-width: 80px">MAX</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Javascript populates this -->
+                </tbody>
+            </table>
+
+            <!-- Fixed Annotations -->
+            <div id="rawAnnotation">RAW (UNFILTERED)</div>
+            <div id="filteredAnnotation">CLEAN (REFINED)</div>
+        </div>
+    </div>
+
+    <!-- ******************************************************************* -->
+    <!-- STEP 1: PASTE YOUR data_payload.js CONTENT HERE -->
+    <script id="data-payload">
+        // !!! Paste the full content of data_payload.js here
+
+        // Example DUMMY DATA (REPLACE THIS ENTIRE BLOCK WITH YOUR REAL DATA):
+        const ATLAS_DATA = {
+            "dates": ["Feb 2019", "Mar 2019", "Apr 2019", "May 2019", "Jun 2019", "Jul 2019", "Aug 2019", "Sep 2019"],
+            "features": {
+                "base_passenger_fare": {
+                    "raw": {
+                        "min": [-163.28, -149.02, -111.21, -118.90, -179.32, -1969.59, -1513.59, -82.46],
+                        "p01": [1.91, 2.35, 2.20, 2.87, 3.32, 0.00, 0.00, 2.94],
+                        "p50": [10.74, 10.18, 11.00, 12.06, 12.72, 11.64, 10.89, 12.70],
+                        "mean": [15.71, 15.43, 16.25, 17.74, 18.54, 17.10, 15.85, 18.29],
+                        "std": [16.13, 16.28, 16.70, 17.94, 18.39, 17.97, 17.80, 17.76],
+                        "p99": [78.39, 79.55, 82.04, 89.45, 91.70, 87.09, 83.50, 88.43],
+                        "p99.9": [152.45, 155.39, 157.07, 168.27, 171.09, 169.95, 165.69, 164.35],
+                        "max": [1097.29, 2255.49, 1313.41, 2371.27, 1642.24, 2215.22, 2710.50, 1505.83],
+                        "rows": [20159102, 23864598, 21734822, 22329247, 21001990, 20303312, 20126113, 20069321]
+                    },
+                    "processed": {
+                        "min": [0.1, 0.5, 0.2, 0.6, 0.5, 0.3, 0.4, 0.7],
+                        "p01": [2.04, 2.40, 2.25, 2.90, 3.35, 3.00, 3.10, 3.00],
+                        "p50": [10.28, 10.50, 11.20, 12.10, 12.80, 11.70, 11.00, 12.75],
+                        "mean": [14.45, 14.80, 15.20, 16.50, 17.20, 16.10, 15.10, 17.50],
+                        "std": [13.06, 13.50, 14.00, 15.00, 15.50, 14.50, 14.20, 14.00],
+                        "p99": [64.34, 65.00, 68.00, 75.00, 78.00, 70.00, 68.00, 75.00],
+                        "p99.9": [110.60, 112.00, 115.00, 125.00, 130.00, 118.00, 115.00, 120.00],
+                        "max": [282.52, 290.00, 310.00, 350.00, 370.00, 360.00, 350.00, 380.00],
+                        "rows": [13056381, 14500000, 13500000, 15000000, 14000000, 13800000, 13500000, 13000000]
+                    },
+                    "stats": {
+                        "min_max": 1969.59, "p01_max": 3.32, "p50_max": 12.72, "mean_max": 18.54,
+                        "std_max": 18.39, "p99_max": 91.70, "p99.9_max": 171.09, "max_max": 2710.50
+                    }
+                }
+            }
+        };
+        // !!! END OF PASTE ZONE
+
+    </script>
+    <script>
+        // ==========================================
+        // 1. INITIALIZATION & SETUP
+        // ==========================================
+
+        if (typeof ATLAS_DATA === 'undefined') {
+            console.error("ATLAS_DATA not defined.");
+            document.getElementById('displayTitle').innerText = "DATA LOADING ERROR";
+            throw new Error("Data not loaded.");
+        }
+
+        const featureSelect = document.getElementById('featureSelect');
+        const stateSlider = document.getElementById('stateSlider');
+        const tableBody = document.getElementById('tableBody');
+        const displayTitle = document.getElementById('displayTitle');
+        const statusBadge = document.getElementById('statusBadge');
+        const bodyTag = document.body;
+        const customHandle = document.getElementById('custom-handle');
+
+        // Q1 Fix: Set Default Feature
+        const DEFAULT_FEATURE = 'base_passenger_fare';
+        let currentFeature = DEFAULT_FEATURE;
+
+        // Populate Dropdown
+        const features = Object.keys(ATLAS_DATA.features).sort();
+        features.forEach(feat => {
+            const opt = document.createElement('option');
+            opt.value = feat;
+            opt.text = feat.replace(/_/g, " ").toUpperCase();
+            featureSelect.appendChild(opt);
+        });
+
+        // ==========================================
+        // 2. HELPER FUNCTIONS (VISUALIZATION)
+        // ==========================================
+
+        // Format Numbers: 1,234.56
+        const fmt = new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+
+        // Format Integers: 1,234
+        const fmtInt = new Intl.NumberFormat('en-US', {
+            maximumFractionDigits: 0
+        });
+
+        /**
+         * Generates the background style string (Q2 Fix: Visuals)
+         */
+        function getStyle(val, maxVal, type, isRaw) {
+            if (val === null || val === undefined) return { style: '', class: '' };
+
+            const absVal = Math.abs(val);
+            const ratio = Math.min(absVal / maxVal, 1);
+            const opacity = ratio * 0.65; // Max opacity 45% for gradient
+            const pct = ratio * 100;
+            let style = '';
+            let className = '';
+
+            // 4. BAR CHART COLOR CORRECTION (Raw=Red, Filtered=Green)
+            if (type === 'bar') {
+                const color = isRaw ? 'var(--data-red)' : 'var(--data-green)';
+                style = `background: linear-gradient(90deg, ${color} ${pct}%, transparent ${pct}%)`;
+                className = 'bar-cell';
+            }
+            // GRADIENTS
+            else if (type === 'safe') {
+                // P01, P50: Use Uber Blue for general distribution (as requested: leave these as is)
+                style = `background-color: rgba(93, 165, 218, ${opacity})`;
+            }
+            // MODIFIED BLOCK: RISK GRADIENT LOGIC (Q2 Fix)
+            else if (type === 'risk') {
+                if (isRaw) {
+                    // RAW: Use Red for risk
+                    style = `background-color: rgba(242, 81, 56, ${opacity})`;
+                } else {
+                    // CLEAN: Use Green for risk (Matches the Green bars in the clean state)
+                    style = `background-color: rgba(71, 178, 117, ${opacity})`;
+                }
+            }
+
+            return { style, class: className };
+        }
+
+        // --- CUSTOM SLIDER POSITIONING ---
+        function updateHandlePosition(sliderVal) {
+            const root = document.documentElement;
+            const trackHeight = parseFloat(getComputedStyle(root).getPropertyValue('--track-height'));
+
+            const invertedValue = 1 - sliderVal;
+            const yPos = invertedValue * trackHeight;
+
+            customHandle.style.top = `${yPos}px`;
+        }
+
+        // ==========================================
+        // 3. RENDER LOGIC
+        // ==========================================
+
+        function render() {
+            const featName = featureSelect.value;
+            const sliderVal = parseFloat(stateSlider.value);
+
+            const isRaw = (sliderVal >= 0.5);
+            const dataSetKey = isRaw ? 'raw' : 'processed';
+            const featData = ATLAS_DATA.features[featName];
+
+            if (!featData) return;
+
+            const currentData = featData[dataSetKey];
+            const stats = featData.stats;
+
+            // Update UI State
+            if (isRaw) {
+                bodyTag.classList.remove('mode-proc');
+                bodyTag.classList.add('mode-raw');
+                statusBadge.innerText = "RAW INPUT (DIRTY)";
+            } else {
+                bodyTag.classList.remove('mode-raw');
+                bodyTag.classList.add('mode-proc');
+                statusBadge.innerText = "CLEAN OUTPUT (FILTERED)";
+            }
+
+            // Update Title
+            const featTitle = featName.replace(/_/g, " ").toUpperCase();
+            document.querySelector('.metric-title').innerHTML = `STATISTICS FOR: <span class="feature-name-highlight">${featTitle}</span>`;
+
+            // Clear Table
+            tableBody.innerHTML = '';
+
+            // Generate Rows
+            ATLAS_DATA.dates.forEach((date, i) => {
+                const tr = document.createElement('tr');
+
+                const getVal = (suffix) => currentData[suffix] ? currentData[suffix][i] : 0;
+
+                const v_min = getVal('min');
+                const v_p01 = getVal('p01');
+                const v_p50 = getVal('p50');
+                const v_mean = getVal('mean');
+                const v_std = getVal('std');
+                const v_p99 = getVal('p99');
+                const v_p999 = getVal('p99.9');
+                const v_max = getVal('max');
+                const v_rows = currentData['rows'] ? currentData['rows'][i] : 0;
+
+                // Subtle row background color definition
+                const rowBgColor = isRaw ? 'rgba(242, 81, 56, 0.03)' : 'rgba(71, 178, 117, 0.03)';
+                const rowBgStyle = `background-color: ${rowBgColor}`; // Used only for Date/Rows columns
+
+                // Get styles for statistical fields
+                const s_min = getStyle(v_min, stats.min_max, 'risk', isRaw);
+                const s_p01 = getStyle(v_p01, stats.p01_max, 'safe', isRaw);
+                const s_p50 = getStyle(v_p50, stats.p50_max, 'safe', isRaw);
+                const s_mean = getStyle(v_mean, stats.mean_max, 'bar', isRaw);
+                const s_std = getStyle(v_std, stats.std_max, 'risk', isRaw);
+                const s_p99 = getStyle(v_p99, stats.p99_max, 'risk', isRaw);
+                const s_p999 = getStyle(v_p999, stats.p999_max, 'risk', isRaw);
+                const s_max = getStyle(v_max, stats.max_max, 'bar', isRaw);
+
+                // --- HTML GENERATION (Q2 Fix: Only apply row background to first two columns) ---
+                tr.innerHTML = `
+                    <td style="${rowBgStyle}">${date}</td>
+                    <td style="color: var(--ui-text-secondary); ${rowBgStyle}">${fmtInt.format(v_rows)}</td>
+                    
+                    <td style="${s_min.style}">${fmt.format(v_min)}</td>
+                    <td style="${s_p01.style}">${fmt.format(v_p01)}</td>
+                    <td style="${s_p50.style}">${fmt.format(v_p50)}</td>
+                    
+                    <td class="val-mean ${s_mean.class}" style="${s_mean.style}">${fmt.format(v_mean)}</td>
+                    
+                    <td style="border-left: 1px solid var(--ui-border); ${s_std.style}">${fmt.format(v_std)}</td>
+                    <td style="${s_p99.style}">${fmt.format(v_p99)}</td>
+                    <td style="${s_p999.style}">${fmt.format(v_p999)}</td>
+                    
+                    <td class="val-max ${s_max.class}" style="${s_max.style}">${fmtInt.format(v_max)}</td>
+                `;
+
+                tableBody.appendChild(tr);
+            });
+        }
+
+        // ==========================================
+        // 4. EVENT LISTENERS
+        // ==========================================
+
+        featureSelect.addEventListener('change', () => {
+            // Reset to Raw view when changing feature
+            stateSlider.value = 1;
+            render();
+            updateHandlePosition(1);
+        });
+
+        stateSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            render();
+            updateHandlePosition(val);
+        });
+
+        // Initialization
+        // Set default feature (Q1 Fix)
+        featureSelect.value = DEFAULT_FEATURE;
+
+        // Set to RAW mode and render
+        stateSlider.value = 1;
+        render();
+        updateHandlePosition(1);
+
+    </script>
+</body>
+
+</html>
