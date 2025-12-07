@@ -97,13 +97,12 @@ We implemented a modern, high-performance ETL pipeline using **`Polars`** *(stil
     *   It cleans, engineers, and aggregates a single month, saves the result, flushes memory, and moves to the next. This guarantees the pipeline doesn't crash, even on lower-end consumer machines.
 
 ### **Pipeline Flowchart**
-*(Concept for Visual Diagram)*
 
 ```mermaid
 graph TD
     A[Raw Data Source] -->|Download Script| B(Raw Parquet Files)
     B -->|Stream Scan| C{Atomic Processor}
-    C -->|Join| D[External Data (Zones + Weather)]
+    C -->|Join| D["External Data (Zones + Weather)"]
     C -->|Filter| E[Data Hygiene Engine]
     C -->|Calculate| F[Feature Engineering Engine]
     
